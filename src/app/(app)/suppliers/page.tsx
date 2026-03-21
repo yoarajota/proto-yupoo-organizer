@@ -1,13 +1,50 @@
 import { createClient } from "@/lib/supabase/server"
 import { SupplierSheet } from "@/components/organisms/SupplierSheet"
+import { SupplierDirectory } from "@/components/organisms/SupplierDirectory"
 import { Button } from "@/components/ui/button"
 
 export default async function SuppliersPage() {
   const supabase = await createClient()
-  const { data: suppliers } = await supabase
-    .from("suppliers")
-    .select("*")
-    .order("created_at", { ascending: false })
+
+  // inquiries table is created in Story 4.x; cast to any until types are regenerated
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const db = supabase as any
+
+  const [
+    { data: suppliers },
+    { data: inquiriesWithPrice },
+    { data: activeInquiries },
+  ] = await Promise.all([
+    supabase.from("suppliers").select("*").order("created_at", { ascending: false }),
+    db.from("inquiries").select("supplier_id, price").not("price", "is", null),
+    db.from("inquiries").select("supplier_id, status").in("status", ["sent", "price_received", "negotiating"]),
+  ])
+
+  const supplierList = suppliers ?? []
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const priceRows: Array<{ supplier_id: string; price: number | null }> = (inquiriesWithPrice as any) ?? []
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const activeRows: Array<{ supplier_id: string; status: string }> = (activeInquiries as any) ?? []
+
+  const supplierStats = supplierList.map((s) => {
+    const supplierInquiries = priceRows.filter((i) => i.supplier_id === s.id && i.price !== null)
+    const prices = supplierInquiries.map((i) => i.price as number)
+    const activeCount = activeRows.filter((i) => i.supplier_id === s.id).length
+    return {
+      ...s,
+      priceRange:
+        prices.length > 0
+          ? { min: Math.min(...prices), max: Math.max(...prices) }
+          : undefined,
+      activeInquiryCount: activeCount,
+    }
+  })
+
+  const allBrands = [...new Set(supplierList.flatMap((s) => s.brands))].sort()
+
+  const addSupplierTrigger = (
+    <SupplierSheet trigger={<Button>Add Supplier</Button>} />
+  )
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -15,30 +52,11 @@ export default async function SuppliersPage() {
         <h1 className="text-body-md font-semibold">Suppliers</h1>
         <SupplierSheet trigger={<Button>Add Supplier</Button>} />
       </div>
-
-      <ul className="flex flex-col gap-2">
-        {suppliers?.map((supplier) => (
-          <li
-            key={supplier.id}
-            className="flex items-center justify-between rounded-lg border border-border bg-surface-container-low px-4 py-3"
-          >
-            <span className="text-body-sm font-medium">{supplier.name}</span>
-            <SupplierSheet
-              supplier={supplier}
-              trigger={
-                <Button variant="outline" size="sm">
-                  Edit
-                </Button>
-              }
-            />
-          </li>
-        ))}
-        {(!suppliers || suppliers.length === 0) && (
-          <li className="text-body-sm text-muted-foreground py-8 text-center">
-            No suppliers yet. Add your first supplier.
-          </li>
-        )}
-      </ul>
+      <SupplierDirectory
+        suppliers={supplierStats}
+        allBrands={allBrands}
+        addSupplierTrigger={addSupplierTrigger}
+      />
     </div>
   )
 }
