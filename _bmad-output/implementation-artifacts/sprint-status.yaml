@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-03-20
-last_updated: 2026-03-21 # story 1-4 complete, status → review
+last_updated: 2026-03-21 # story 2-1 → review
 project: proto-yupoo-organizer
 project_key: NOKEY
 tracking_system: file-system
@@ -51,8 +51,8 @@ development_status:
   epic-1-retrospective: optional
 
   # Epic 2: Supplier Directory & Trust Intelligence
-  epic-2: backlog
-  2-1-create-edit-supplier: backlog
+  epic-2: in-progress
+  2-1-create-edit-supplier: review
   2-2-supplier-directory-brand-filtering: backlog
   2-3-supplier-detail-trust-intelligence: backlog
   epic-2-retrospective: optional

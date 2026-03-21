@@ -61,6 +61,54 @@ export type Database = {
         }
         Relationships: []
       }
+      suppliers: {
+        Row: {
+          brands: string[]
+          created_at: string
+          created_by: string
+          id: string
+          is_flagged: boolean
+          name: string
+          negotiation_final_price: number | null
+          negotiation_opening_price: number | null
+          red_flag_source: string | null
+          trust_notes: string | null
+          updated_at: string
+          whatsapp_contact: string
+          yupoo_url: string
+        }
+        Insert: {
+          brands?: string[]
+          created_at?: string
+          created_by: string
+          id?: string
+          is_flagged?: boolean
+          name: string
+          negotiation_final_price?: number | null
+          negotiation_opening_price?: number | null
+          red_flag_source?: string | null
+          trust_notes?: string | null
+          updated_at?: string
+          whatsapp_contact: string
+          yupoo_url: string
+        }
+        Update: {
+          brands?: string[]
+          created_at?: string
+          created_by?: string
+          id?: string
+          is_flagged?: boolean
+          name?: string
+          negotiation_final_price?: number | null
+          negotiation_opening_price?: number | null
+          red_flag_source?: string | null
+          trust_notes?: string | null
+          updated_at?: string
+          whatsapp_contact?: string
+          yupoo_url?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
