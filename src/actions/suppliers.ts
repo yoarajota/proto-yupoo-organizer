@@ -40,5 +40,6 @@ export async function updateSupplier(id: string, formData: SupplierFormValues) {
 
   if (error) return { data: null, error: { message: error.message } }
   revalidatePath('/suppliers')
+  revalidatePath('/suppliers/' + id)
   return { data, error: null }
 }
