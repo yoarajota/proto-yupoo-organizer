@@ -34,61 +34,29 @@ export type Database = {
   }
   public: {
     Tables: {
-      group_members: {
+      profiles: {
         Row: {
           created_at: string
-          group_id: string
           id: string
+          invited_by: string | null
           is_active: boolean
-          role: string
+          role: Database["public"]["Enums"]["user_role"]
           updated_at: string
-          user_id: string
         }
         Insert: {
           created_at?: string
-          group_id: string
-          id?: string
-          is_active?: boolean
-          role?: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          group_id?: string
-          id?: string
-          is_active?: boolean
-          role?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "group_members_group_id_fkey"
-            columns: ["group_id"]
-            isOneToOne: false
-            referencedRelation: "groups"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      groups: {
-        Row: {
-          created_at: string
           id: string
-          name: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          name: string
+          invited_by?: string | null
+          is_active?: boolean
+          role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
         }
         Update: {
           created_at?: string
           id?: string
-          name?: string
+          invited_by?: string | null
+          is_active?: boolean
+          role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
         }
         Relationships: []
@@ -98,10 +66,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_admin: { Args: never; Returns: boolean }
     }
     Enums: {
-      [_ in never]: never
+      user_role: "admin" | "member"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -231,7 +199,9 @@ export const Constants = {
     Enums: {},
   },
   public: {
-    Enums: {},
+    Enums: {
+      user_role: ["admin", "member"],
+    },
   },
 } as const
 

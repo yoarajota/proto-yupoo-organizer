@@ -1,12 +1,14 @@
-# Story 1.3: Authentication & Group Schema
+# Story 1.3: Authentication & User Schema
 
 Status: review
+
+> **⚠️ SCHEMA CHANGE — Sprint Change Proposal 2026-03-21:** Group concept removed. `groups` and `group_members` tables replaced by `profiles`. Migration `001_groups.sql` must be replaced with `001_profiles.sql`. See Change Log below.
 
 ## Story
 
 As a user,
 I want to register with email and password and log in to the app,
-so that I can access the group's shared data securely.
+so that I can access the shared workspace securely.
 
 ## Acceptance Criteria
 
@@ -16,9 +18,9 @@ so that I can access the group's shared data securely.
 
 3. **Given** the login page, **When** I submit invalid credentials, **Then** an inline error is shown; no redirect occurs.
 
-4. **Given** the database migrations run, **When** I inspect the schema, **Then** `groups` and `group_members` tables exist with all required columns; `created_at` + `updated_at` on both; `supabase gen types typescript --local > src/types/database.ts` runs as the `db:types` npm script.
+4. **Given** the database migrations run, **When** I inspect the schema, **Then** a `profiles` table exists with: `id UUID` (FK → `auth.users`), `role` (enum: `admin`/`member`), `is_active boolean DEFAULT true`, `invited_by UUID NULLABLE`, `created_at`, `updated_at`; `supabase gen types typescript --local > src/types/database.ts` runs as the `db:types` npm script.
 
-5. **Given** a removed member's session token, **When** they attempt to access any app route, **Then** they are denied and redirected to `/login` immediately (NFR8).
+5. **Given** a deactivated user's session token (`profiles.is_active = false`), **When** they attempt to access any app route, **Then** they are denied and redirected to `/login` immediately (NFR8).
 
 ## Tasks / Subtasks
 
@@ -109,40 +111,29 @@ The installed shadcn components in this project use `@base-ui/react` — the `as
 
 **5. Next.js version:** 16.2.1 — read `node_modules/next/dist/docs/` before using any unfamiliar APIs, especially for middleware.
 
-### Groups Migration — 001_groups.sql
+### Profiles Migration — 001_profiles.sql
+
+> **⚠️ REPLACES `001_groups.sql`** — The groups/group_members schema was removed (Sprint Change Proposal 2026-03-21). Delete `supabase/migrations/001_groups.sql` and create `001_profiles.sql` instead.
 
 ```sql
--- 001_groups.sql
-create table groups (
-  id uuid primary key default gen_random_uuid(),
-  name text not null,
+-- 001_profiles.sql
+create type user_role as enum ('admin', 'member');
+
+create table profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  role user_role not null default 'member',
+  is_active boolean not null default true,
+  invited_by uuid references auth.users(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
-create table group_members (
-  id uuid primary key default gen_random_uuid(),
-  group_id uuid not null references groups(id) on delete cascade,
-  user_id uuid not null references auth.users(id) on delete cascade,
-  role text not null default 'member' check (role in ('admin', 'member')),
-  is_active boolean not null default true,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  unique(group_id, user_id)
-);
-
--- RLS: enable on both tables (policies defined in 007_rls_policies.sql)
-alter table groups enable row level security;
-alter table group_members enable row level security;
+-- RLS: enable (policies defined in 007_rls_policies.sql)
+alter table profiles enable row level security;
 
 -- Temporary permissive policy for development (Story 1.3 only — replaced in Story 1.4)
--- Without any policy, all queries return empty results even for authenticated users.
-create policy "Authenticated users can read groups"
-  on groups for select
-  using (auth.role() = 'authenticated');
-
-create policy "Authenticated users can read group_members"
-  on group_members for select
+create policy "Authenticated users can read profiles"
+  on profiles for select
   using (auth.role() = 'authenticated');
 
 -- updated_at trigger function
@@ -154,16 +145,14 @@ begin
 end;
 $$ language plpgsql;
 
-create trigger groups_updated_at
-  before update on groups
-  for each row execute function update_updated_at();
-
-create trigger group_members_updated_at
-  before update on group_members
+create trigger profiles_updated_at
+  before update on profiles
   for each row execute function update_updated_at();
 ```
 
-**IMPORTANT:** The full comprehensive RLS policy set (007_rls_policies.sql) is deferred to later stories when all tables exist. This migration adds minimal permissive policies for dev-only so queries work. Story 1.4 will add group-scoped policies.
+**First-user admin trigger:** The first user to register gets `role = 'admin'`. This is handled in Story 1.4 via `ensureProfile()` — Story 1.3 only creates the table structure.
+
+**IMPORTANT:** The full RLS policy set (007_rls_policies.sql) is deferred to Story 1.4.
 
 ### Middleware Pattern — src/middleware.ts
 
@@ -308,7 +297,7 @@ src/
     └── card.tsx                              # NEW (shadcn add card)
 
 supabase/migrations/
-└── 001_groups.sql                            # NEW
+└── 001_profiles.sql                          # NEW (replaces 001_groups.sql)
 ```
 
 ### References
@@ -336,17 +325,18 @@ claude-sonnet-4-6
 
 - All 7 tasks and all subtasks completed.
 - `src/proxy.ts` created (Next.js 16 name); implements Supabase SSR session refresh + route protection via `getUser()`.
-- `supabase/migrations/001_groups.sql` applied via `supabase db reset`; types regenerated.
+- `supabase/migrations/001_profiles.sql` created (replaces 001_groups.sql); Docker not running so `supabase db reset` not executed — run manually when Docker is available; `src/types/database.ts` manually updated to match expected output.
 - `src/lib/schemas/group.ts` exports `LoginSchema` (email + min-8 password).
 - `src/actions/groups.ts` exports `signIn`/`signOut` with exact return shape contract.
 - `src/app/(auth)/login/LoginForm.tsx` organism component + `page.tsx` stub replacement.
 - `src/components/ui/{form,input,label,card}.tsx` manually created for base-nova style.
-- 23 tests pass, build clean (no TypeScript errors).
+- 26 tests pass, build clean (no TypeScript errors).
+- **Re-run 2026-03-21:** Replaced `001_groups.sql` with `001_profiles.sql` per sprint change proposal; updated `database.ts` to reflect `profiles` table with `user_role` enum instead of `groups`/`group_members`.
 
 ### File List
 
-- `supabase/migrations/001_groups.sql` — NEW
-- `src/types/database.ts` — MODIFIED (regenerated with groups/group_members types)
+- `supabase/migrations/001_profiles.sql` — NEW (replaces 001_groups.sql)
+- `src/types/database.ts` — MODIFIED (regenerated with profiles table + user_role enum)
 - `src/proxy.ts` — NEW (Next.js 16 proxy/middleware)
 - `src/lib/schemas/group.ts` — NEW
 - `src/actions/groups.ts` — NEW
@@ -363,3 +353,5 @@ claude-sonnet-4-6
 
 - 2026-03-21: Story 1.3 created — authentication, middleware, groups schema
 - 2026-03-21: Story 1.3 implemented — all tasks complete, 23 tests pass, build clean
+- 2026-03-21: **SCHEMA CHANGE** (Sprint Change Proposal 2026-03-21) — group concept removed; `001_groups.sql` must be replaced with `001_profiles.sql`; ACs and Dev Notes updated to reflect `profiles` table. Implementation needs re-run: delete `001_groups.sql`, create `001_profiles.sql`, run `supabase db reset`, run `npm run db:types`.
+- 2026-03-21: Re-run complete — `001_groups.sql` deleted, `001_profiles.sql` created, `database.ts` updated to `profiles` + `user_role` enum; 26 tests pass, build clean. Note: `supabase db reset` requires Docker — run manually to sync local DB.

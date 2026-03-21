@@ -1,5 +1,5 @@
 # generated: 2026-03-20
-# last_updated: 2026-03-21 (story 1-3 moved to review)
+# last_updated: 2026-03-21 (sprint-change-proposal: group concept removed, profiles replaces groups)
 # project: proto-yupoo-organizer
 # project_key: NOKEY
 # tracking_system: file-system
@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-03-20
-last_updated: 2026-03-21
+last_updated: 2026-03-21 # story 1-4 complete, status → review
 project: proto-yupoo-organizer
 project_key: NOKEY
 tracking_system: file-system
@@ -47,7 +47,7 @@ development_status:
   1-1-project-initialization-development-environment: review
   1-2-design-system-tokens-appshell: review
   1-3-authentication-group-schema: review
-  1-4-group-management-admin: backlog
+  1-4-group-management-admin: review
   epic-1-retrospective: optional
 
   # Epic 2: Supplier Directory & Trust Intelligence

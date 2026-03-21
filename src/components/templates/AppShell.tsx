@@ -42,10 +42,16 @@ function BottomTabBar() {
   );
 }
 
-export default function AppShell({ children }: { children: React.ReactNode }) {
+export default function AppShell({
+  children,
+  topBar,
+}: {
+  children: React.ReactNode
+  topBar?: React.ReactNode
+}) {
   return (
     <>
-      <TopBar />
+      {topBar ?? <TopBar />}
 
       {/* Desktop sidebar: ≥1024px full, 768–1023px collapsed */}
       <aside

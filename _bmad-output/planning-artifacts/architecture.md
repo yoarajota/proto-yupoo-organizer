@@ -143,7 +143,7 @@ npm install @supabase/supabase-js @supabase/ssr
 ### Authentication & Security
 - **Auth flow:** Email + password (Supabase Auth)
 - **RLS:** Primary enforcement at DB layer (Supabase RLS policies). Next.js middleware validates session; data isolation guaranteed by RLS, not application code.
-- **Group scoping:** `group_id` FK on all tables, enforced by RLS — never filtered in application code alone
+- **Auth-gated access:** All data readable by any authenticated user — enforced by RLS `auth.uid() IS NOT NULL`. Delete/update restricted to record creator or admin (`profiles.role = 'admin'`). No `group_id` concept — single shared workspace.
 
 ### API & Communication
 - **Mutations:** Server Actions for all CRUD operations
@@ -164,14 +164,14 @@ npm install @supabase/supabase-js @supabase/ssr
 ### Decision Impact Analysis
 **Implementation sequence driven by dependencies:**
 1. Supabase schema + RLS policies (everything depends on this)
-2. Auth flow + group creation (gates all other data)
+2. Auth flow + profiles setup (gates all other data)
 3. Tailwind token system + AppShell (gates all UI work)
 4. Atomic Design atoms → molecules → organisms (bottom-up)
 5. Server Actions per domain (Suppliers → Products → Inquiries → Sources)
 6. pHash API Route (can be added last, deferred to Phase 2 if needed)
 
 **Cross-component dependencies:**
-- RLS group_id scoping affects every Supabase query
+- RLS auth-gated access affects every Supabase query; creator_or_admin policy affects all deletes/updates
 - Zod schemas shared between Server Actions and React Hook Form
 - AppShell is a dependency for every page component
 
@@ -180,9 +180,9 @@ npm install @supabase/supabase-js @supabase/ssr
 ### Naming Patterns
 
 **Database Naming Conventions:**
-- Tables: `snake_case` plural — `suppliers`, `products`, `inquiries`, `price_quotes`, `sources`, `groups`, `group_members`, `photo_hashes`
-- Columns: `snake_case` — `group_id`, `created_by`, `yupoo_url`, `whatsapp_contact`
-- Foreign keys: `{table_singular}_id` — `supplier_id`, `product_id`, `group_id`
+- Tables: `snake_case` plural — `profiles`, `suppliers`, `products`, `inquiries`, `sources`, `photo_hashes`
+- Columns: `snake_case` — `created_by`, `yupoo_url`, `whatsapp_contact`
+- Foreign keys: `{table_singular}_id` — `supplier_id`, `product_id`
 - Timestamps: always `created_at` + `updated_at` on every table — never omitted
 - Booleans: `is_` prefix — `is_active`, `is_flagged` (never bare `active`, `flagged`)
 
@@ -191,7 +191,7 @@ npm install @supabase/supabase-js @supabase/ssr
 - Component files: `PascalCase.tsx` — `SupplierRow.tsx`, `PhotoThumb.tsx`
 - Server Actions: `camelCase` verb-noun — `createSupplier`, `updateInquiryStatus`, `deleteSource`
 - Zod schemas: `PascalCase` + `Schema` suffix — `SupplierSchema`, `InquirySchema`
-- DB query helpers: `camelCase` verb-noun — `getSuppliersByGroup`, `getInquiriesByProduct`
+- DB query helpers: `camelCase` verb-noun — `getAllSuppliers`, `getInquiriesByProduct`
 - Route segments: `kebab-case` — `/suppliers/[id]`, `/active-inquiries`
 
 ### Structure Patterns
@@ -212,7 +212,7 @@ src/actions/
   products.ts    # createProduct, addProductPhoto, deleteProduct
   inquiries.ts   # createInquiry, updateInquiryStatus, updateInquiryPrice
   sources.ts     # createSource, toggleSourceActive, deleteSource
-  groups.ts      # createGroup, inviteMember, removeMember
+  users.ts       # inviteUser, deactivateUser, getUsers, getCurrentProfile
 ```
 Each file exports named async functions — no default exports.
 
@@ -236,7 +236,7 @@ Each file exports named async functions — no default exports.
 **Zod schemas:**
 ```
 src/lib/schemas/
-  supplier.ts / product.ts / inquiry.ts / source.ts / group.ts
+  supplier.ts / product.ts / inquiry.ts / source.ts / user.ts
 ```
 
 **Tests co-located:**

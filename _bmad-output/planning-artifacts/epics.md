@@ -18,12 +18,12 @@ This document provides the complete epic and story breakdown for proto-yupoo-org
 
 ### Functional Requirements
 
-FR1: Admin can create a group and become its owner
-FR2: Admin can invite members to the group via email
-FR3: Admin can remove members from the group
-FR4: Members can log in and access all group-scoped data
-FR5: Data created by any member belongs to the group and persists if that member is removed
-FR6: System enforces group-scoped access — members only see data from their own group
+FR1: ~~Admin can create a group and become its owner~~ — REMOVED
+FR2: Admin can invite users to the system via email
+FR3: Admin can deactivate a user account (revokes access immediately)
+FR4: Authenticated users can log in and access all shared data
+FR5: Data created by any user persists even if that user is deactivated
+FR6: Admin can delete any record in the system; a user can delete records they created
 FR7: Members can create a supplier card with name, Yupoo shop URL, and WhatsApp contact
 FR8: Members can tag a supplier with one or more brands they carry
 FR9: Members can add free-text trust notes to a supplier card
@@ -60,7 +60,7 @@ NFR1: Photo upload progress feedback appears within 2 seconds of initiating uplo
 NFR2: Inquiry list and supplier list load within 1 second on a standard desktop connection
 NFR3: pHash comparison completes within 3 seconds of photo upload completion
 NFR4: App remains responsive during multi-photo uploads (no UI freeze)
-NFR5: All data is scoped to the user's group via Supabase Row Level Security — no cross-group data leakage is permissible
+NFR5: All data is accessible to any authenticated user — RLS enforces auth-gated access; delete/update restricted to creator or admin
 NFR6: All data is encrypted in transit (HTTPS) and at rest (Supabase default)
 NFR7: Authentication is required to access any app data — no public endpoints expose group data
 NFR8: Removed members lose access to all group data immediately upon removal
@@ -71,8 +71,8 @@ NFR11: Photo files in Supabase Storage are deleted only by explicit deletion act
 ### Additional Requirements
 
 - **Starter Template (Epic 1, Story 1):** `create-next-app` + shadcn/ui + Supabase SSR is the required initialization path — no boilerplate beyond this. First story must run these init commands.
-- **Supabase CLI migrations:** 7 SQL migration files required in `supabase/migrations/`: 001_groups, 002_suppliers, 003_products, 004_photo_hashes, 005_inquiries, 006_sources, 007_rls_policies.
-- **RLS as primary data isolation:** `group_id` FK on all tables, enforced by RLS policies — never filtered in application code alone.
+- **Supabase CLI migrations:** 7 SQL migration files required in `supabase/migrations/`: 001_profiles, 002_suppliers, 003_products, 004_photo_hashes, 005_inquiries, 006_sources, 007_rls_policies.
+- **RLS as primary data isolation:** Auth-gated read access (`auth.uid() IS NOT NULL`); creator-or-admin delete/update — enforced by RLS policies, never in application code alone. No `group_id` concept.
 - **`db:types` npm script:** `supabase gen types typescript --local > src/types/database.ts` must exist before any feature code is written.
 - **Tailwind token inventory:** Must be fully defined in `tailwind.config.ts` before any atom component is built.
 - **Supabase Storage bucket configuration:** Bucket name, public/private setting, and file size limit must be established before PhotoUploadZone is implemented.
@@ -108,12 +108,12 @@ UX-DR20: Implement `InquiryRow` organism and `InquiryTable` organism: grid-cols-
 
 ### FR Coverage Map
 
-FR1: Epic 1 — Admin creates group
-FR2: Epic 1 — Admin invites members via email
-FR3: Epic 1 — Admin removes members
-FR4: Epic 1 — Members log in and access group data
-FR5: Epic 1 — Data persists when member removed
-FR6: Epic 1 — Group-scoped access enforcement (RLS)
+FR1: REMOVED
+FR2: Epic 1 — Admin invites users to the system
+FR3: Epic 1 — Admin deactivates user account
+FR4: Epic 1 — Authenticated users log in and access all shared data
+FR5: Epic 1 — Data persists when user deactivated
+FR6: Epic 1 — Creator-or-admin delete enforcement (RLS)
 FR7: Epic 2 — Create supplier card
 FR8: Epic 2 — Tag supplier with brands
 FR9: Epic 2 — Free-text trust notes
@@ -147,9 +147,9 @@ FR35: Epic 6 — Surface advisory match flag
 ## Epic List
 
 ### Epic 1: Project Foundation, Auth & Design System
-Users can register, log in, and access the fully styled app shell. Group admins can invite and manage members. A new member logs in and immediately sees the group's shared data with no setup required.
-**FRs covered:** FR1, FR2, FR3, FR4, FR5, FR6
-**Also covers:** Project initialization (create-next-app + shadcn/ui + Supabase SSR), Supabase migrations + RLS policies, Tailwind design tokens, AppShell + SideNav, session middleware, testing setup (Vitest + Playwright), mobile responsive layout
+Users can register, log in, and access the fully styled app shell. Admin can invite and manage users. Any authenticated user immediately sees all shared data.
+**FRs covered:** FR2, FR3, FR4, FR5, FR6
+**Also covers:** Project initialization (create-next-app + shadcn/ui + Supabase SSR), Supabase migrations + RLS policies (auth-gated + creator-or-admin), Tailwind design tokens, AppShell + SideNav, session middleware, testing setup (Vitest + Playwright), mobile responsive layout
 
 ### Epic 2: Supplier Directory & Trust Intelligence
 Users can build and browse a shared supplier directory with Yupoo URLs, WhatsApp contacts, brand tags, trust notes, red flags, and negotiation elasticity data. The group's supplier knowledge is immediately available to every member.
@@ -225,17 +225,17 @@ So that I can navigate the app confidently on desktop and read data on mobile.
 **When** it is rendered,
 **Then** all `fontSize`, `spacing`/`width`, `borderRadius`, `colors`, and `letterSpacing` values reference named tokens in `tailwind.config.ts` — no arbitrary bracket values exist anywhere.
 
-### Story 1.3: Authentication & Group Schema
+### Story 1.3: Authentication & User Schema
 
 As a user,
 I want to register with email and password and log in to the app,
-So that I can access the group's shared data securely.
+So that I can access the shared workspace securely.
 
 **Acceptance Criteria:**
 
 **Given** I am not authenticated,
 **When** I navigate to any app route,
-**Then** `src/middleware.ts` redirects me to `/login`.
+**Then** `src/proxy.ts` (Next.js 16 middleware) redirects me to `/login`.
 
 **Given** the login page,
 **When** I submit valid credentials,
@@ -247,39 +247,43 @@ So that I can access the group's shared data securely.
 
 **Given** the database migrations run,
 **When** I inspect the schema,
-**Then** `groups` and `group_members` tables exist with all required columns; `created_at` + `updated_at` on both; `supabase gen types typescript --local > src/types/database.ts` runs as the `db:types` npm script.
+**Then** a `profiles` table exists with: `id UUID` (FK → `auth.users`), `role` (enum: `admin`/`member`), `is_active boolean DEFAULT true`, `invited_by UUID NULLABLE`, `created_at`, `updated_at`; `supabase gen types typescript --local > src/types/database.ts` runs as the `db:types` npm script.
 
-**Given** a removed member's session token,
+**Given** a deactivated user's session token,
 **When** they attempt to access any app route,
 **Then** they are denied and redirected to `/login` immediately (NFR8).
 
-### Story 1.4: Group Management (Admin)
+### Story 1.4: User Management (Admin)
 
 As an admin,
-I want to create my group, invite members by email, and remove members who leave,
-So that the right people have access to the shared research platform.
+I want to invite new users to the system and deactivate users who leave,
+So that only trusted people have access to the shared workspace.
 
 **Acceptance Criteria:**
 
-**Given** I am the first user to log in,
-**When** I complete registration,
-**Then** a group is created for me and I am assigned the admin role (FR1).
+**Given** I am the first authenticated user,
+**When** I land on any `(app)` route,
+**Then** `ensureProfile()` creates my `profiles` row with `role = 'admin'` (FR2 prerequisite).
 
 **Given** I am an admin on the Settings page,
-**When** I enter a member's email and click Invite,
-**Then** an invitation email is sent via Supabase Auth `inviteUserByEmail` (FR2).
+**When** I enter a user's email and click Invite,
+**Then** an invitation email is sent via Supabase Auth `inviteUserByEmail`; a `profiles` row is created with `role = 'member'` and `is_active = true` (FR2).
 
 **Given** I am an admin,
-**When** I remove a member,
-**Then** their `group_members.is_active` is set to false; they immediately lose access to all group data (FR3, NFR8).
+**When** I deactivate a user,
+**Then** `profiles.is_active` is set to false; their session is revoked immediately (FR3, NFR8).
 
-**Given** any group member,
+**Given** any authenticated user,
 **When** they access the app,
-**Then** they only see data scoped to their group — RLS policies enforce this at the DB layer, not application code (FR6, NFR5).
+**Then** they see all shared data — RLS enforces auth-gated access at the DB layer (FR4, NFR5).
 
-**Given** a removed member's records (suppliers, products they added),
-**When** viewed by remaining members,
-**Then** all records remain in the group, intact and visible (FR5).
+**Given** a deactivated user's records (suppliers, products they created),
+**When** viewed by remaining users,
+**Then** all records remain intact and visible (FR5).
+
+**Given** I am an admin on the Settings / Users page,
+**When** it loads,
+**Then** I see all users with role, active status, and Deactivate/Reactivate action (own row has no action).
 
 ---
 
@@ -309,7 +313,7 @@ So that the group can start building its shared supplier directory.
 
 **Given** the `suppliers` migration,
 **When** it runs,
-**Then** the table includes: `id`, `group_id`, `name`, `yupoo_url`, `whatsapp_contact`, `brands` (text[]), `trust_notes`, `is_flagged`, `red_flag_source`, `negotiation_opening_price`, `negotiation_final_price`, `created_by`, `created_at`, `updated_at`.
+**Then** the table includes: `id`, `name`, `yupoo_url`, `whatsapp_contact`, `brands` (text[]), `trust_notes`, `is_flagged`, `red_flag_source`, `negotiation_opening_price`, `negotiation_final_price`, `created_by`, `created_at`, `updated_at`. RLS policies (from 007_rls_policies.sql pattern): auth-gated SELECT/INSERT; creator-or-admin UPDATE/DELETE.
 
 **Given** an existing supplier,
 **When** I click Edit,
@@ -465,7 +469,7 @@ So that I can track which suppliers I've contacted for a product.
 
 **Given** the `inquiries` migration and `rls_policies` migration,
 **When** they run,
-**Then** the `inquiries` table has: `id`, `group_id`, `product_id`, `supplier_id`, `status` (enum: sent/price_received/negotiating/decided/ghosted), `price`, `notes`, `created_by`, `created_at`, `updated_at`; RLS policies grant group-scoped access to all tables.
+**Then** the `inquiries` table has: `id`, `product_id`, `supplier_id`, `status` (enum: sent/price_received/negotiating/decided/ghosted), `price`, `notes`, `created_by`, `created_at`, `updated_at`; RLS policies grant auth-gated SELECT/INSERT and creator-or-admin UPDATE/DELETE to all tables (following the pattern in `007_rls_policies.sql`).
 
 ### Story 4.2: Active Inquiries List (Default Landing)
 
@@ -587,7 +591,7 @@ So that future research sessions start from the group's accumulated knowledge.
 
 **Given** the `sources` migration,
 **When** it runs,
-**Then** the table has: `id`, `group_id`, `url`, `platform` (enum), `brands` (text[]), `notes`, `is_active`, `created_by`, `created_at`, `updated_at`.
+**Then** the table has: `id`, `url`, `platform` (enum), `brands` (text[]), `notes`, `is_active`, `created_by`, `created_at`, `updated_at`. RLS: auth-gated SELECT/INSERT; creator-or-admin UPDATE/DELETE.
 
 ### Story 5.2: Source Library — Browse & Filter
 

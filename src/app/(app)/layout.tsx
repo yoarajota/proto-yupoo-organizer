@@ -1,9 +1,17 @@
-import AppShell from "@/components/templates/AppShell";
+import AppShell from "@/components/templates/AppShell"
+import TopBar from "@/components/organisms/TopBar"
+import { ensureProfile, getCurrentProfile } from "@/actions/users"
 
-export default function AppLayout({
+export default async function AppLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: React.ReactNode
 }) {
-  return <AppShell>{children}</AppShell>;
+  await ensureProfile()
+  const profileResult = await getCurrentProfile()
+  const userEmail = profileResult.data?.email
+
+  return (
+    <AppShell topBar={<TopBar userEmail={userEmail} />}>{children}</AppShell>
+  )
 }

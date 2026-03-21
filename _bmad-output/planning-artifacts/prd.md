@@ -106,7 +106,7 @@ Jota_ sees a Reddit post about a brand he wants to source with two Yupoo shop li
 
 A friend is added by the admin. She logs in, opens the Supplier list, and immediately sees 12 suppliers her friends have catalogued — with trust notes, brands carried, and red flags. She's researching a bag brand, checks the source library, finds a Discord server saved 3 weeks ago tagged with that brand. She goes straight there instead of starting from scratch on Reddit. She finds a new shop, adds it as a supplier, and creates an inquiry. The group now has 13 suppliers.
 
-**Capabilities revealed:** Group-scoped auth (all data visible on join), source library with brand filtering, collaborative supplier pool.
+**Capabilities revealed:** Shared workspace auth (all data visible on login), source library with brand filtering, collaborative supplier pool.
 
 ---
 
@@ -118,11 +118,11 @@ Jota_ finds a new Yupoo shop and uploads product photos. The app flags: "2 of th
 
 ---
 
-### Journey 4: Admin manages the group
+### Journey 4: Admin manages access
 
-Jota_ sets up the app, creates the group, invites three friends via email. One friend leaves the importing business — Jota_ removes their access. Data created by that user stays in the group.
+Jota_ sets up the app and invites three friends via email. One friend leaves the importing business — Jota_ deactivates their account. Data created by that user stays in the shared workspace.
 
-**Capabilities revealed:** Group creation, member invitation, member removal, data ownership at group level (not user level).
+**Capabilities revealed:** User invitation, account deactivation, data persists regardless of who added it.
 
 ---
 
@@ -130,8 +130,8 @@ Jota_ sets up the app, creates the group, invites three friends via email. One f
 
 | Capability | Revealed By |
 |---|---|
-| Auth + group-scoped access | Journeys 2, 4 |
-| Admin: invite/remove members | Journey 4 |
+| Auth + shared workspace access | Journeys 2, 4 |
+| Admin: invite/deactivate users | Journey 4 |
 | Source library with brand + platform tags | Journeys 1, 2 |
 | Supplier cards (URL, WhatsApp, brands, notes, red flags) | Journeys 1, 2 |
 | Product cards with multi-photo upload | Journey 1 |
@@ -184,14 +184,14 @@ Multiple Yupoo shops often source from the same factory and share identical prod
 
 ## Functional Requirements
 
-### Group & User Management
+### User & Access Management
 
-- **FR1:** Admin can create a group and become its owner
-- **FR2:** Admin can invite members to the group via email
-- **FR3:** Admin can remove members from the group
-- **FR4:** Members can log in and access all group-scoped data
-- **FR5:** Data created by any member belongs to the group and persists if that member is removed
-- **FR6:** System enforces group-scoped access — members only see data from their own group
+- ~~**FR1:** Admin can create a group and become its owner~~ — **REMOVED** (no group concept; single shared workspace)
+- **FR2:** Admin can invite users to the system via email
+- **FR3:** Admin can deactivate a user account (revokes access immediately)
+- **FR4:** Authenticated users can log in and access all shared data
+- **FR5:** Data created by any user persists even if that user is deactivated
+- **FR6:** Admin can delete any record in the system; a user can delete records they created
 
 ### Supplier Management
 
@@ -251,10 +251,10 @@ Multiple Yupoo shops often source from the same factory and share identical prod
 
 ### Security
 
-- **NFR5:** All data is scoped to the user's group via Supabase Row Level Security — no cross-group data leakage is permissible
+- **NFR5:** All data is accessible to any authenticated user — no anonymous or unauthenticated data exposure permissible; Supabase RLS enforces auth-gated (not group-scoped) access
 - **NFR6:** All data is encrypted in transit (HTTPS) and at rest (Supabase default)
-- **NFR7:** Authentication is required to access any app data — no public endpoints expose group data
-- **NFR8:** Removed members lose access to all group data immediately upon removal
+- **NFR7:** Authentication is required to access any app data — no public endpoints expose data
+- **NFR8:** Deactivated users lose access immediately upon deactivation
 
 ### Reliability
 
