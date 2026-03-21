@@ -1,0 +1,86 @@
+# generated: 2026-03-20
+# last_updated: 2026-03-21 (story 1-3 moved to review)
+# project: proto-yupoo-organizer
+# project_key: NOKEY
+# tracking_system: file-system
+# story_location: _bmad-output/implementation-artifacts
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Epic Status Transitions:
+#   - backlog → in-progress: Automatically when first story is created (via create-story)
+#   - in-progress → done: Manually when all stories reach 'done' status
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review (via Dev's code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when first story is created
+# - Stories can be worked in parallel if team capacity allows
+# - SM typically creates next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+
+generated: 2026-03-20
+last_updated: 2026-03-21
+project: proto-yupoo-organizer
+project_key: NOKEY
+tracking_system: file-system
+story_location: _bmad-output/implementation-artifacts
+
+development_status:
+  # Epic 1: Project Foundation, Auth & Design System
+  epic-1: in-progress
+  1-1-project-initialization-development-environment: review
+  1-2-design-system-tokens-appshell: review
+  1-3-authentication-group-schema: review
+  1-4-group-management-admin: backlog
+  epic-1-retrospective: optional
+
+  # Epic 2: Supplier Directory & Trust Intelligence
+  epic-2: backlog
+  2-1-create-edit-supplier: backlog
+  2-2-supplier-directory-brand-filtering: backlog
+  2-3-supplier-detail-trust-intelligence: backlog
+  epic-2-retrospective: optional
+
+  # Epic 3: Photo-First Product Catalog
+  epic-3: backlog
+  3-1-create-product-via-photo-upload: backlog
+  3-2-add-photos-notes-to-existing-product: backlog
+  3-3-products-gallery-product-detail-view: backlog
+  epic-3-retrospective: optional
+
+  # Epic 4: Inquiry Tracking & Context Recovery
+  epic-4: backlog
+  4-1-create-inquiry-linking-product-to-supplier: backlog
+  4-2-active-inquiries-list-default-landing: backlog
+  4-3-inquiry-status-price-management: backlog
+  4-4-product-detail-market-overview-full-inquiry-history: backlog
+  4-5-supplier-detail-linked-inquiry-history: backlog
+  epic-4-retrospective: optional
+
+  # Epic 5: Source Library
+  epic-5: backlog
+  5-1-save-manage-sources: backlog
+  5-2-source-library-browse-filter: backlog
+  epic-5-retrospective: optional
+
+  # Epic 6: Photo Similarity Detection
+  epic-6: backlog
+  6-1-phash-computation-pipeline: backlog
+  6-2-similarity-advisory-flag: backlog
+  epic-6-retrospective: optional
