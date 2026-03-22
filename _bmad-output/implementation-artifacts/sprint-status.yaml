@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-03-20
-last_updated: 2026-03-22 # story 3-2 → review
+last_updated: 2026-03-22 # story 3-3 → ready-for-dev
 project: proto-yupoo-organizer
 project_key: NOKEY
 tracking_system: file-system
@@ -61,7 +61,7 @@ development_status:
   epic-3: in-progress
   3-1-create-product-via-photo-upload: review
   3-2-add-photos-notes-to-existing-product: review
-  3-3-products-gallery-product-detail-view: backlog
+  3-3-products-gallery-product-detail-view: review
   epic-3-retrospective: optional
 
   # Epic 4: Inquiry Tracking & Context Recovery

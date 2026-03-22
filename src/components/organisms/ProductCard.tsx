@@ -42,6 +42,9 @@ export function ProductCard({ product }: ProductCardProps) {
             <p className="line-clamp-2 text-label-sm text-muted-foreground">{product.notes}</p>
           )}
           <p className="text-label-xs text-muted-foreground mt-1">{formattedDate}</p>
+          <p className="text-label-xs text-muted-foreground mt-1">
+            {product.photo_hashes.length} {product.photo_hashes.length === 1 ? 'photo' : 'photos'}
+          </p>
         </div>
       </div>
     </Link>
