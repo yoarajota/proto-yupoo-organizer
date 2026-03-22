@@ -1,5 +1,6 @@
 "use server"
 
+import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { LoginSchema } from "@/lib/schemas/group"
 
@@ -21,4 +22,10 @@ export async function signOut() {
   const { error } = await supabase.auth.signOut()
   if (error) return { data: null, error: { message: error.message } }
   return { data: null, error: null }
+}
+
+export async function signOutAndRedirect() {
+  const supabase = await createClient()
+  await supabase.auth.signOut()
+  redirect("/login")
 }

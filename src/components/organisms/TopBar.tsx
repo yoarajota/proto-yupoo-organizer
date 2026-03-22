@@ -1,15 +1,8 @@
 import Link from "next/link"
-import { signOut } from "@/actions/groups"
-import { redirect } from "next/navigation"
+import { signOutAndRedirect } from "@/actions/groups"
 
 interface TopBarProps {
   userEmail?: string
-}
-
-async function handleSignOut() {
-  "use server"
-  await signOut()
-  redirect("/login")
 }
 
 export default function TopBar({ userEmail }: TopBarProps) {
@@ -26,7 +19,7 @@ export default function TopBar({ userEmail }: TopBarProps) {
         >
           Settings
         </Link>
-        <form action={handleSignOut}>
+        <form action={signOutAndRedirect}>
           <button
             type="submit"
             className="text-label-sm text-muted-foreground hover:text-foreground transition-colors"
