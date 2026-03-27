@@ -8,7 +8,7 @@ export default async function ActiveInquiriesPage() {
 
   const { data: inquiries } = await supabase
     .from("inquiries")
-    .select("*, suppliers(name), products(notes)")
+    .select("*, suppliers(name), products(notes, photo_hashes(storage_path, alt_text))")
     .not("status", "in", "('decided', 'ghosted')")
     .order("created_at", { ascending: false })
 

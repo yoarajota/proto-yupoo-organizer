@@ -19,8 +19,10 @@ interface InquiryTableProps {
 export function InquiryTable({ inquiries, showProductName, className }: InquiryTableProps) {
   if (inquiries.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center p-8 border border-dashed rounded-lg bg-muted/30">
-        <p className="text-body-sm text-muted-foreground">No inquiries found yet.</p>
+      <div className="flex flex-col items-center justify-center p-12 border border-dashed rounded-lg bg-muted/20">
+        <p className="text-body-sm text-muted-foreground text-center">
+          No active inquiries yet — add your first inquiry from a product page.
+        </p>
       </div>
     )
   }
