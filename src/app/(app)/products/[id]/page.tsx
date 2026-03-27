@@ -5,6 +5,10 @@ import { DetailTemplate } from '@/components/templates/DetailTemplate'
 import { ProductPhotoStrip } from '@/components/organisms/ProductPhotoStrip'
 import { PhotoUploadZone } from '@/components/organisms/PhotoUploadZone'
 import { ProductNotesForm } from '@/components/organisms/ProductNotesForm'
+import { InquiryTable } from '@/components/organisms/InquiryTable'
+import { InquirySheet } from '@/components/organisms/InquirySheet'
+import { Button } from '@/components/ui/button'
+import type { InquiryWithSupplier } from '@/components/organisms/InquiryRow'
 
 export default async function ProductDetailPage({
   params,
@@ -24,6 +28,19 @@ export default async function ProductDetailPage({
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 
+  const { data: inquiries } = await supabase
+    .from('inquiries')
+    .select('*, suppliers(name)')
+    .eq('product_id', id)
+    .order('created_at', { ascending: false })
+
+  const typedInquiries = inquiries || []
+
+  const { data: suppliers } = await supabase
+    .from('suppliers')
+    .select('id, name')
+    .order('name')
+
   return (
     <DetailTemplate
       breadcrumb={
@@ -33,21 +50,46 @@ export default async function ProductDetailPage({
       }
       title="Product"
     >
-      <div className="space-y-6">
+      <div className="space-y-8">
         {/* Photo row */}
         <ProductPhotoStrip
           photos={product.photo_hashes}
           supabaseUrl={supabaseUrl}
         />
 
-        {/* Add photos */}
-        <PhotoUploadZone productId={id} />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 space-y-8">
+            {/* Inquiries Section */}
+            <section className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold">Inquiries</h2>
+                <InquirySheet 
+                  productId={id} 
+                  suppliers={suppliers || []} 
+                  trigger={<Button variant="outline" size="sm">Add Inquiry</Button>}
+                />
+              </div>
+              <InquiryTable inquiries={typedInquiries} />
+            </section>
 
-        {/* Notes */}
-        <ProductNotesForm
-          productId={id}
-          initialNotes={product.notes ?? ''}
-        />
+            {/* Notes */}
+            <section className="space-y-4">
+              <h2 className="text-xl font-semibold">Notes</h2>
+              <ProductNotesForm
+                productId={id}
+                initialNotes={product.notes ?? ''}
+              />
+            </section>
+          </div>
+
+          <div className="space-y-8">
+            {/* Add photos */}
+            <section className="space-y-4">
+              <h2 className="text-xl font-semibold">Add Photos</h2>
+              <PhotoUploadZone productId={id} />
+            </section>
+          </div>
+        </div>
       </div>
     </DetailTemplate>
   )

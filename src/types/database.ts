@@ -34,6 +34,122 @@ export type Database = {
   }
   public: {
     Tables: {
+      inquiries: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          notes: string | null
+          price: number | null
+          product_id: string
+          status: Database["public"]["Enums"]["inquiry_status"]
+          supplier_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          notes?: string | null
+          price?: number | null
+          product_id: string
+          status?: Database["public"]["Enums"]["inquiry_status"]
+          supplier_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          notes?: string | null
+          price?: number | null
+          product_id?: string
+          status?: Database["public"]["Enums"]["inquiry_status"]
+          supplier_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inquiries_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inquiries_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      photo_hashes: {
+        Row: {
+          alt_text: string
+          created_at: string
+          created_by: string
+          id: string
+          phash: string | null
+          product_id: string
+          storage_path: string
+          updated_at: string
+        }
+        Insert: {
+          alt_text?: string
+          created_at?: string
+          created_by: string
+          id?: string
+          phash?: string | null
+          product_id: string
+          storage_path: string
+          updated_at?: string
+        }
+        Update: {
+          alt_text?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          phash?: string | null
+          product_id?: string
+          storage_path?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "photo_hashes_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      products: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -57,71 +173,6 @@ export type Database = {
           invited_by?: string | null
           is_active?: boolean
           role?: Database["public"]["Enums"]["user_role"]
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      photo_hashes: {
-        Row: {
-          id: string
-          product_id: string
-          storage_path: string
-          phash: string | null
-          alt_text: string
-          created_by: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          product_id: string
-          storage_path: string
-          phash?: string | null
-          alt_text?: string
-          created_by: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          product_id?: string
-          storage_path?: string
-          phash?: string | null
-          alt_text?: string
-          created_by?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "photo_hashes_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      products: {
-        Row: {
-          id: string
-          notes: string | null
-          created_by: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          notes?: string | null
-          created_by: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          notes?: string | null
-          created_by?: string
-          created_at?: string
           updated_at?: string
         }
         Relationships: []
@@ -182,6 +233,12 @@ export type Database = {
       is_admin: { Args: never; Returns: boolean }
     }
     Enums: {
+      inquiry_status:
+        | "sent"
+        | "price_received"
+        | "negotiating"
+        | "decided"
+        | "ghosted"
       user_role: "admin" | "member"
     }
     CompositeTypes: {
@@ -313,6 +370,13 @@ export const Constants = {
   },
   public: {
     Enums: {
+      inquiry_status: [
+        "sent",
+        "price_received",
+        "negotiating",
+        "decided",
+        "ghosted",
+      ],
       user_role: ["admin", "member"],
     },
   },
