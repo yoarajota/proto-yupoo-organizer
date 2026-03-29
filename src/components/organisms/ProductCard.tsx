@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Camera } from 'lucide-react'
+import { Camera, AlertCircle } from 'lucide-react'
 import { PhotoThumb } from '@/components/atoms/PhotoThumb'
 import type { Database } from '@/types/database'
 
@@ -7,7 +7,11 @@ type ProductRow = Database['public']['Tables']['products']['Row']
 type PhotoHashRow = Database['public']['Tables']['photo_hashes']['Row']
 
 interface ProductCardProps {
-  product: ProductRow & { photo_hashes: PhotoHashRow[] }
+  product: ProductRow & { 
+    photo_hashes: (PhotoHashRow & { 
+      similarity_matches?: { is_dismissed: boolean }[] 
+    })[] 
+  }
 }
 
 export function ProductCard({ product }: ProductCardProps) {
@@ -20,9 +24,18 @@ export function ProductCard({ product }: ProductCardProps) {
     new Date(product.created_at)
   )
 
+  const hasMatches = product.photo_hashes.some(
+    ph => ph.similarity_matches?.some(m => !m.is_dismissed)
+  )
+
   return (
     <Link href={`/products/${product.id}`}>
-      <div className="rounded-lg border border-border bg-surface-container-lowest overflow-hidden hover:border-primary transition-colors">
+      <div className="rounded-lg border border-border bg-surface-container-lowest overflow-hidden hover:border-primary transition-colors relative">
+        {hasMatches && (
+          <div className="absolute top-2 right-2 z-10 bg-yellow-500 text-white rounded-full p-1 shadow-sm">
+            <AlertCircle size={16} />
+          </div>
+        )}
         <div className="aspect-square">
           {publicUrl ? (
             <PhotoThumb

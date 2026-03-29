@@ -126,6 +126,48 @@ export type Database = {
           },
         ];
       };
+      similarity_matches: {
+        Row: {
+          created_at: string;
+          distance: number;
+          id: string;
+          is_dismissed: boolean;
+          matched_photo_hash_id: string;
+          source_photo_hash_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          distance: number;
+          id?: string;
+          is_dismissed?: boolean;
+          matched_photo_hash_id: string;
+          source_photo_hash_id: string;
+        };
+        Update: {
+          created_at?: string;
+          distance?: number;
+          id?: string;
+          is_dismissed?: boolean;
+          matched_photo_hash_id?: string;
+          source_photo_hash_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "similarity_matches_matched_photo_hash_id_fkey";
+            columns: ["matched_photo_hash_id"];
+            isOneToOne: false;
+            referencedRelation: "photo_hashes";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "similarity_matches_source_photo_hash_id_fkey";
+            columns: ["source_photo_hash_id"];
+            isOneToOne: false;
+            referencedRelation: "photo_hashes";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       products: {
         Row: {
           created_at: string;

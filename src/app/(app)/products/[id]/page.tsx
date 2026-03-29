@@ -9,6 +9,8 @@ import { InquiryTable } from '@/components/organisms/InquiryTable'
 import { InquirySheet } from '@/components/organisms/InquirySheet'
 import { MarketOverviewCallout } from '@/components/molecules/MarketOverviewCallout'
 import { Button } from '@/components/ui/button'
+import { getSimilarityMatches } from '@/actions/products'
+import { SimilarityAdvisoryBanner } from '@/components/molecules/SimilarityAdvisoryBanner'
 import type { InquiryWithSupplier } from '@/components/organisms/InquiryRow'
 
 export default async function ProductDetailPage({
@@ -16,7 +18,7 @@ export default async function ProductDetailPage({
 }: {
   params: Promise<{ id: string }>
 }) {
-  const { id } = await params   // CRITICAL: Next.js 16 async params
+  const { id } = await params // CRITICAL: Next.js 16 async params
 
   const supabase = await createClient()
   const { data: product } = await supabase
@@ -26,6 +28,8 @@ export default async function ProductDetailPage({
     .single()
 
   if (!product) notFound()
+
+  const { data: matches } = await getSimilarityMatches(id)
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 
@@ -52,6 +56,10 @@ export default async function ProductDetailPage({
       title="Product"
     >
       <div className="space-y-8">
+        {matches && matches.length > 0 && (
+          <SimilarityAdvisoryBanner matches={matches} />
+        )}
+
         {/* Photo row */}
         <ProductPhotoStrip
           photos={product.photo_hashes}

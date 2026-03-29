@@ -6,9 +6,11 @@ import { ProductCard } from '@/components/organisms/ProductCard'
 export default async function ProductsPage() {
   const supabase = await createClient()
   const { data: products } = await supabase
-    .from('products')
-    .select('*, photo_hashes(*)')
-    .order('created_at', { ascending: false })
+    .from("products")
+    .select(
+      "*, photo_hashes(*, similarity_matches!source_photo_hash_id(is_dismissed))",
+    )
+    .order("created_at", { ascending: false });
 
   return (
     <GalleryTemplate title="Products">
