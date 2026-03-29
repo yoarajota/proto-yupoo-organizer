@@ -91,3 +91,46 @@ export async function deleteInquiry(id: string) {
   }
   return { error: null };
 }
+
+export async function updateInquiryStatus(id: string, status: string) {
+  return updateInquiry(id, { status: status as any });
+}
+
+export async function updateInquiryPrice(id: string, price: number | null) {
+  return updateInquiry(id, { price });
+}
+
+export async function updateInquiryNotes(id: string, notes: string | null) {
+  return updateInquiry(id, { notes });
+}
+
+export async function getInquiriesBySupplier(supplierId: string) {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("inquiries")
+    .select(
+      `
+      *,
+      profiles (
+        id,
+        role
+      ),
+      suppliers (
+        name
+      ),
+      products (
+        notes,
+        photo_hashes (
+          storage_path,
+          alt_text
+        )
+      )
+    `,
+    )
+    .eq("supplier_id", supplierId)
+    .order("created_at", { ascending: false });
+
+  if (error) return { data: null, error: { message: error.message } };
+  return { data, error: null };
+}

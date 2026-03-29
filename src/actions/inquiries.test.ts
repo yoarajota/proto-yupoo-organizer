@@ -153,3 +153,37 @@ describe("deleteInquiry", () => {
     expect(result).toEqual({ error: null });
   });
 });
+
+describe("getInquiriesBySupplier", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns inquiries on success", async () => {
+    const fakeInquiries = [
+      {
+        id: "inq1",
+        supplier_id: VALID_SUPPLIER_ID,
+        profiles: { id: "user1", role: "admin" },
+      },
+    ];
+    mockFrom.mockReturnValue(makeBuilder({ data: fakeInquiries, error: null }));
+
+    const { getInquiriesBySupplier } = await import("./inquiries");
+    const result = await getInquiriesBySupplier(VALID_SUPPLIER_ID);
+
+    expect(result).toEqual({ data: fakeInquiries, error: null });
+    expect(mockFrom).toHaveBeenCalledWith("inquiries");
+  });
+
+  it("returns error on failure", async () => {
+    mockFrom.mockReturnValue(
+      makeBuilder({ data: null, error: { message: "Fetch failed" } }),
+    );
+
+    const { getInquiriesBySupplier } = await import("./inquiries");
+    const result = await getInquiriesBySupplier(VALID_SUPPLIER_ID);
+
+    expect(result).toEqual({ data: null, error: { message: "Fetch failed" } });
+  });
+});

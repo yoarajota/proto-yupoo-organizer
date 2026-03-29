@@ -18,11 +18,11 @@ interface StatusDropdownProps {
 }
 
 const statusOptions: { value: InquiryStatus; label: string; color: string }[] = [
-  { value: "sent", label: "Sent", color: "bg-slate-100 text-slate-700 dark:bg-slate-900/50 dark:text-slate-400" },
-  { value: "price_received", label: "Price Received", color: "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-400" },
-  { value: "negotiating", label: "Negotiating", color: "bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-400" },
-  { value: "decided", label: "Decided", color: "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-400" },
-  { value: "ghosted", label: "Ghosted", color: "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-400" },
+  { value: "sent", label: "Sent", color: "bg-zinc-100 text-zinc-600 dark:bg-zinc-900/50 dark:text-zinc-400" },
+  { value: "price_received", label: "Price Received", color: "bg-blue-50 text-blue-700 dark:bg-blue-900/50 dark:text-blue-400" },
+  { value: "negotiating", label: "Negotiating", color: "bg-amber-50 text-amber-700 dark:bg-amber-900/50 dark:text-amber-400" },
+  { value: "decided", label: "Decided", color: "bg-green-50 text-green-700 dark:bg-green-900/50 dark:text-green-400" },
+  { value: "ghosted", label: "Ghosted", color: "bg-zinc-50 text-zinc-400 dark:bg-zinc-900/20 dark:text-zinc-500" },
 ]
 
 export function StatusDropdown({
@@ -60,6 +60,9 @@ export function StatusDropdown({
           </SelectItem>
         ))}
       </SelectContent>
+      <div aria-live="polite" className="sr-only">
+        Status changed to {currentOption?.label}
+      </div>
     </Select>
   )
 }

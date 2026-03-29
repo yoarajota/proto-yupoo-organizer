@@ -14,14 +14,15 @@ interface InquiryTableProps {
   inquiries: InquiryWithSupplier[]
   showProductName?: boolean
   className?: string
+  emptyMessage?: string
 }
 
-export function InquiryTable({ inquiries, showProductName, className }: InquiryTableProps) {
+export function InquiryTable({ inquiries, showProductName, className, emptyMessage }: InquiryTableProps) {
   if (inquiries.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center p-12 border border-dashed rounded-lg bg-muted/20">
         <p className="text-body-sm text-muted-foreground text-center">
-          No active inquiries yet — add your first inquiry from a product page.
+          {emptyMessage || "No inquiries yet — add one to get started."}
         </p>
       </div>
     )

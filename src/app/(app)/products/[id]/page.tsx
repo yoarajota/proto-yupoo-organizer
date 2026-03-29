@@ -7,6 +7,7 @@ import { PhotoUploadZone } from '@/components/organisms/PhotoUploadZone'
 import { ProductNotesForm } from '@/components/organisms/ProductNotesForm'
 import { InquiryTable } from '@/components/organisms/InquiryTable'
 import { InquirySheet } from '@/components/organisms/InquirySheet'
+import { MarketOverviewCallout } from '@/components/molecules/MarketOverviewCallout'
 import { Button } from '@/components/ui/button'
 import type { InquiryWithSupplier } from '@/components/organisms/InquiryRow'
 
@@ -60,7 +61,7 @@ export default async function ProductDetailPage({
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-8">
             {/* Inquiries Section */}
-            <section className="space-y-4">
+            <section className="space-y-6">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-semibold">Inquiries</h2>
                 <InquirySheet 
@@ -69,7 +70,12 @@ export default async function ProductDetailPage({
                   trigger={<Button variant="outline" size="sm">Add Inquiry</Button>}
                 />
               </div>
-              <InquiryTable inquiries={typedInquiries} />
+
+              {typedInquiries.length > 0 && (
+                <MarketOverviewCallout inquiries={typedInquiries as InquiryWithSupplier[]} />
+              )}
+
+              <InquiryTable inquiries={typedInquiries as InquiryWithSupplier[]} />
             </section>
 
             {/* Notes */}
