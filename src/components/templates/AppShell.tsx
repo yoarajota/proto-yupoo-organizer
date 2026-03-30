@@ -19,7 +19,7 @@ function BottomTabBar() {
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-20 h-14 bg-white border-t border-border flex md:hidden"
+      className="fixed bottom-0 left-0 right-0 z-40 h-16 bg-background/80 backdrop-blur-xl border-t border-border/40 flex md:hidden px-2 pb-safe"
       aria-label="Bottom navigation"
     >
       {navItems.map(({ href, label, icon: Icon }) => {
@@ -29,12 +29,12 @@ function BottomTabBar() {
             key={href}
             href={href}
             className={cn(
-              "flex flex-1 flex-col items-center justify-center gap-0.5 text-xs transition-colors",
-              isActive ? "text-primary" : "text-muted-foreground"
+              "flex flex-1 flex-col items-center justify-center gap-1 transition-all duration-300",
+              isActive ? "text-primary scale-110" : "text-muted-foreground/60"
             )}
           >
             <Icon className="h-5 w-5" />
-            <span>{label}</span>
+            <span className="text-[10px] uppercase font-bold tracking-tighter opacity-80">{label}</span>
           </Link>
         );
       })}
@@ -46,44 +46,46 @@ export default function AppShell({
   children,
   topBar,
 }: {
-  children: React.ReactNode
-  topBar?: React.ReactNode
+  children: React.ReactNode;
+  topBar?: React.ReactNode;
 }) {
   return (
-    <>
+    <div className="flex flex-col min-h-screen">
       {topBar ?? <TopBar />}
 
-      {/* Desktop sidebar: ≥1024px full, 768–1023px collapsed */}
-      <aside
-        className={cn(
-          "fixed top-14 bottom-0 z-10",
-          "hidden md:block",
-          "md:w-sidebar-collapsed lg:w-sidebar"
-        )}
-      >
-        {/* collapsed prop driven by viewport via CSS — SideNav renders full,
-            but the sidebar width controls visibility; collapsed icon-only on md */}
-        <div className="hidden lg:block h-full">
-          <SideNav collapsed={false} />
-        </div>
-        <div className="block lg:hidden h-full">
-          <SideNav collapsed={true} />
-        </div>
-      </aside>
+      <div className="flex flex-1 pt-14">
+        {/* Desktop sidebar */}
+        <aside
+          className={cn(
+            "fixed bottom-0 top-14 left-0 z-20",
+            "hidden md:block transition-all duration-500 ease-in-out",
+            "md:w-[var(--width-sidebar-collapsed)] lg:w-[var(--width-sidebar)]"
+          )}
+        >
+          <div className="hidden lg:block h-full">
+            <SideNav collapsed={false} />
+          </div>
+          <div className="block lg:hidden h-full">
+            <SideNav collapsed={true} />
+          </div>
+        </aside>
 
-      {/* Main content */}
-      <main
-        className={cn(
-          "pt-14",
-          "md:pl-sidebar-collapsed lg:pl-sidebar",
-          "pb-14 md:pb-0"
-        )}
-      >
-        <div className="max-w-5xl mx-auto px-4 sm:px-6">{children}</div>
-      </main>
+        {/* Main content */}
+        <main
+          className={cn(
+            "flex-1 min-w-0 transition-all duration-500 ease-in-out",
+            "md:ml-[var(--width-sidebar-collapsed)] lg:ml-[var(--width-sidebar)]",
+            "pb-20 md:pb-12"
+          )}
+        >
+          <div className="max-w-6xl mx-auto px-6 lg:px-12 py-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            {children}
+          </div>
+        </main>
+      </div>
 
       {/* Bottom tab bar: mobile only */}
       <BottomTabBar />
-    </>
+    </div>
   );
 }

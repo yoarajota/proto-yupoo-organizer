@@ -32,22 +32,37 @@ function NavItem({ href, label, icon: Icon, collapsed }: NavItemProps) {
     <Link
       href={href}
       className={cn(
-        "flex items-center gap-3 px-4 py-2 rounded-sm transition-colors",
+        "flex items-center gap-3 px-6 py-3 transition-all duration-300 group relative",
         isActive
-          ? "border-l-4 border-primary font-semibold text-foreground"
-          : "border-l-4 border-transparent text-muted-foreground hover:text-foreground"
+          ? "text-foreground"
+          : "text-muted-foreground/60 hover:text-foreground"
       )}
     >
-      <Icon className="h-5 w-5 shrink-0" />
-      {!collapsed && <span>{label}</span>}
+      <Icon className={cn(
+        "h-4 w-4 shrink-0 transition-transform duration-300",
+        isActive ? "scale-110" : "group-hover:scale-110"
+      )} />
+      {!collapsed && (
+        <span className={cn(
+          "text-xs font-medium tracking-wide uppercase",
+          isActive ? "opacity-100" : "opacity-80 group-hover:opacity-100"
+        )}>
+          {label}
+        </span>
+      )}
+      {isActive && (
+        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-primary rounded-full shadow-[0_0_8px_var(--primary)]" />
+      )}
     </Link>
   );
 
   if (collapsed) {
     return (
       <Tooltip>
-        <TooltipTrigger render={linkContent} />
-        <TooltipContent side="right">{label}</TooltipContent>
+        <TooltipTrigger>{linkContent}</TooltipTrigger>
+        <TooltipContent side="right" className="bg-foreground text-background border-none rounded-none text-[10px] uppercase tracking-widest px-3 py-1.5">
+          {label}
+        </TooltipContent>
       </Tooltip>
     );
   }
@@ -62,12 +77,14 @@ interface SideNavProps {
 export default function SideNav({ collapsed = false }: SideNavProps) {
   return (
     <nav
-      className="flex flex-col gap-1 py-4 bg-surface-container-low h-full"
+      className="flex flex-col gap-2 py-8 bg-background h-full border-r border-border/40"
       aria-label="Main navigation"
     >
-      {navItems.map((item) => (
-        <NavItem key={item.href} {...item} collapsed={collapsed} />
-      ))}
+      <div className="flex flex-col gap-1">
+        {navItems.map((item) => (
+          <NavItem key={item.href} {...item} collapsed={collapsed} />
+        ))}
+      </div>
     </nav>
   );
 }

@@ -28,12 +28,12 @@ export function SourcesTable({ sources, onClearFilters, isFiltered }: SourcesTab
     <div className="rounded-xl border border-border bg-surface-container-low overflow-hidden">
       <Table>
         <TableHeader>
-          <TableRow className="hover:bg-transparent bg-surface-container-medium">
-            <TableHead>Platform</TableHead>
-            <TableHead>Source / URL</TableHead>
-            <TableHead>Notes</TableHead>
-            <TableHead>Added By</TableHead>
-            <TableHead className="text-right">Active</TableHead>
+          <TableRow className="border-b-2 border-foreground/10 hover:bg-transparent">
+            <TableHead className="text-[10px] uppercase tracking-widest text-muted-foreground py-6">Platform</TableHead>
+            <TableHead className="text-[10px] uppercase tracking-widest text-muted-foreground py-6">Source / URL</TableHead>
+            <TableHead className="text-[10px] uppercase tracking-widest text-muted-foreground py-6">Annotations</TableHead>
+            <TableHead className="text-[10px] uppercase tracking-widest text-muted-foreground py-6">Originator</TableHead>
+            <TableHead className="text-right text-[10px] uppercase tracking-widest text-muted-foreground py-6 pr-6">Activity</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>

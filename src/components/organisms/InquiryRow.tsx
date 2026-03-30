@@ -3,12 +3,17 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { StatusDropdown } from "@/components/molecules/StatusDropdown"
-import { EditablePrice } from "@/components/molecules/EditablePrice"
-import { EditableNotes } from "@/components/molecules/EditableNotes"
-import { AttributionLine } from "@/components/atoms/AttributionLine"
-import { PhotoThumb } from "@/components/atoms/PhotoThumb"
-import { updateInquiry, updateInquiryPrice, updateInquiryNotes } from "@/actions/inquiries"
+import { StatusDropdown } from "@/components/molecules/StatusDropdown";
+import { EditablePrice } from "@/components/molecules/EditablePrice";
+import { EditableNotes } from "@/components/molecules/EditableNotes";
+import { AttributionLine } from "@/components/atoms/AttributionLine";
+import { PhotoThumb } from "@/components/atoms/PhotoThumb";
+import { cn } from "@/lib/utils";
+import {
+  updateInquiry,
+  updateInquiryPrice,
+  updateInquiryNotes,
+} from "@/actions/inquiries";
 import type { Database } from "@/types/database"
 import type { InquiryStatus } from "@/lib/schemas/inquiry"
 import { TableCell as TabCell, TableRow as TabRow } from "@/components/ui/table"
@@ -36,103 +41,131 @@ export interface InquiryWithSupplier extends DBInquiry {
 }
 
 interface InquiryRowProps {
-  inquiry: InquiryWithSupplier
-  showProductName?: boolean // In case we want to show it in the active list
-  productName?: string
+  inquiry: InquiryWithSupplier;
+  showProductName?: boolean;
+  productName?: string;
+  className?: string;
+  style?: React.CSSProperties;
 }
 
-export function InquiryRow({ inquiry, showProductName, productName }: InquiryRowProps) {
-  const router = useRouter()
-  const [status, setStatus] = useState<InquiryStatus>(inquiry.status)
-  const [isUpdating, setIsUpdating] = useState(false)
+export function InquiryRow({
+  inquiry,
+  showProductName,
+  productName,
+  className,
+  style,
+}: InquiryRowProps) {
+  const router = useRouter();
+  const [status, setStatus] = useState<InquiryStatus>(inquiry.status);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   const handleStatusChange = async (newStatus: InquiryStatus) => {
-    setIsUpdating(true)
-    setStatus(newStatus)
-    const result = await updateInquiry(inquiry.id, { status: newStatus })
+    setIsUpdating(true);
+    setStatus(newStatus);
+    const result = await updateInquiry(inquiry.id, { status: newStatus });
     if (result.error) {
-      console.error(result.error.message)
-      setStatus(inquiry.status) // revert on error
+      console.error(result.error.message);
+      setStatus(inquiry.status); // revert on error
     }
-    setIsUpdating(false)
-  }
+    setIsUpdating(false);
+  };
 
   const handlePriceChange = async (newPrice: number | null) => {
-    const result = await updateInquiryPrice(inquiry.id, newPrice)
+    const result = await updateInquiryPrice(inquiry.id, newPrice);
     if (result.error) {
-      console.error(result.error.message)
+      console.error(result.error.message);
     }
-  }
+  };
 
   const handleNotesChange = async (newNotes: string | null) => {
-    const result = await updateInquiryNotes(inquiry.id, newNotes)
+    const result = await updateInquiryNotes(inquiry.id, newNotes);
     if (result.error) {
-      console.error(result.error.message)
+      console.error(result.error.message);
     }
-  }
+  };
 
   const handleRowClick = () => {
-    router.push(`/products/${inquiry.product_id}`)
-  }
+    router.push(`/products/${inquiry.product_id}`);
+  };
 
-  const firstPhotoPath = inquiry.products?.photo_hashes?.[0]?.storage_path
-  const firstPhotoAlt = inquiry.products?.photo_hashes?.[0]?.alt_text || "Product photo"
-  const photoSrc = firstPhotoPath ? `${SUPABASE_URL}/storage/v1/object/public/product-photos/${firstPhotoPath}` : ""
+  const firstPhotoPath = inquiry.products?.photo_hashes?.[0]?.storage_path;
+  const firstPhotoAlt =
+    inquiry.products?.photo_hashes?.[0]?.alt_text || "Product photo";
+  const photoSrc = firstPhotoPath
+    ? `${SUPABASE_URL}/storage/v1/object/public/product-photos/${firstPhotoPath}`
+    : "";
 
   return (
-    <TabRow 
-      key={inquiry.id} 
-      className="group transition-colors h-[72px] cursor-pointer hover:bg-muted/50"
+    <TabRow
+      key={inquiry.id}
+      className={cn(
+        "group transition-all duration-500 h-[88px] cursor-pointer hover:bg-white hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:z-10 relative border-b border-border/30",
+        className
+      )}
+      style={style}
       onClick={handleRowClick}
     >
       {showProductName && (
-         <TabCell className="font-medium text-body-sm align-top pt-4">
-           <div className="flex items-center gap-3">
-             <PhotoThumb 
-               src={photoSrc} 
-               alt={firstPhotoAlt}
-               className="h-10 w-10 shrink-0"
-               size="sm"
-             />
-             <Link 
-               href={`/products/${inquiry.product_id}`}
-               className="hover:underline font-medium relative z-10"
-               onClick={(e: React.MouseEvent) => e.stopPropagation()}
-             >
-               {productName ?? 'Unknown Product'}
-             </Link>
-           </div>
-         </TabCell>
+        <TabCell className="align-middle py-4">
+          <div className="flex items-center gap-4">
+            <PhotoThumb
+              src={photoSrc}
+              alt={firstPhotoAlt}
+              className="h-14 w-14 shrink-0 shadow-sm transition-transform duration-500 group-hover:scale-105"
+              size="sm"
+            />
+            <Link
+              href={`/products/${inquiry.product_id}`}
+              className="hover:text-primary font-medium text-xs tracking-tight transition-colors relative z-10"
+              onClick={(e: React.MouseEvent) => e.stopPropagation()}
+            >
+              {productName ?? "Unknown Product"}
+            </Link>
+          </div>
+        </TabCell>
       )}
-      <TabCell className="align-top pt-4">
-        <Link 
+      <TabCell className="align-middle py-4">
+        <Link
           href={`/suppliers/${inquiry.supplier_id}`}
-          className="text-body-sm font-medium hover:underline text-primary relative z-10"
+          className="text-xs font-semibold tracking-wide uppercase hover:text-primary/80 transition-colors relative z-10"
           onClick={(e: React.MouseEvent) => e.stopPropagation()}
         >
-          {inquiry.suppliers?.name || 'Unknown Supplier'}
+          {inquiry.suppliers?.name || "Unknown Supplier"}
         </Link>
       </TabCell>
-      <TabCell className="align-top pt-3 relative z-10" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-        <StatusDropdown 
-          value={status} 
-          onValueChange={handleStatusChange} 
+      <TabCell
+        className="align-middle py-4 relative z-10"
+        onClick={(e: React.MouseEvent) => e.stopPropagation()}
+      >
+        <StatusDropdown
+          value={status}
+          onValueChange={handleStatusChange}
           disabled={isUpdating}
         />
       </TabCell>
-      <TabCell className="align-top pt-4 text-body-sm relative z-10">
-        <EditablePrice initialPrice={inquiry.price} onSave={handlePriceChange} />
+      <TabCell className="align-middle py-4 text-sm font-medium relative z-10">
+        <EditablePrice
+          initialPrice={inquiry.price}
+          onSave={handlePriceChange}
+        />
       </TabCell>
-      <TabCell className="align-top pt-4 max-w-[200px] relative z-10">
-        <EditableNotes initialNotes={inquiry.notes} onSave={handleNotesChange} />
+      <TabCell className="align-middle py-4 max-w-[240px] relative z-10">
+        <EditableNotes
+          initialNotes={inquiry.notes}
+          onSave={handleNotesChange}
+        />
       </TabCell>
-      <TabCell className="align-top pt-4 text-right">
-        <AttributionLine 
-          email={inquiry.profiles?.role ? `Team ${inquiry.profiles.role}` : inquiry.created_by.slice(0, 8)} 
+      <TabCell className="align-middle py-4 text-right pr-6">
+        <AttributionLine
+          email={
+            inquiry.profiles?.role
+              ? `Team ${inquiry.profiles.role}`
+              : inquiry.created_by.slice(0, 8)
+          }
           date={inquiry.created_at}
-          className="justify-end"
+          className="justify-end opacity-60 group-hover:opacity-100 transition-opacity"
         />
       </TabCell>
     </TabRow>
-  )
+  );
 }

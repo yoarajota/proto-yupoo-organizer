@@ -1,33 +1,41 @@
-import Link from "next/link"
-import { signOutAndRedirect } from "@/actions/groups"
+import Link from "next/link";
+import { signOutAndRedirect } from "@/actions/groups";
+import { cn } from "@/lib/utils";
 
 interface TopBarProps {
-  userEmail?: string
+  userEmail?: string;
 }
 
 export default function TopBar({ userEmail }: TopBarProps) {
   return (
-    <header className="fixed top-0 left-0 right-0 z-20 h-14 bg-white/80 backdrop-blur-md border-b border-border flex items-center px-4">
-      <span className="font-semibold text-foreground">Yupoo Organizer</span>
-      <div className="ml-auto flex items-center gap-3">
+    <header className="fixed top-0 left-0 right-0 z-30 h-14 bg-background/80 backdrop-blur-xl border-b border-border/40 flex items-center px-6">
+      <Link href="/" className="font-heading text-xl tracking-tight text-foreground hover:opacity-80 transition-opacity">
+        Yupoo <span className="text-editorial">Organizer</span>
+      </Link>
+      
+      <div className="ml-auto flex items-center gap-6">
         {userEmail && (
-          <span className="text-label-sm text-muted-foreground hidden sm:block">{userEmail}</span>
+          <span className="text-[10px] uppercase tracking-widest text-muted-foreground/60 hidden sm:block">
+            {userEmail}
+          </span>
         )}
-        <Link
-          href="/settings"
-          className="text-label-sm text-muted-foreground hover:text-foreground transition-colors"
-        >
-          Settings
-        </Link>
-        <form action={signOutAndRedirect}>
-          <button
-            type="submit"
-            className="text-label-sm text-muted-foreground hover:text-foreground transition-colors"
+        <nav className="flex items-center gap-4">
+          <Link
+            href="/settings"
+            className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
           >
-            Sign out
-          </button>
-        </form>
+            Settings
+          </Link>
+          <form action={signOutAndRedirect}>
+            <button
+              type="submit"
+              className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Sign out
+            </button>
+          </form>
+        </nav>
       </div>
     </header>
-  )
+  );
 }

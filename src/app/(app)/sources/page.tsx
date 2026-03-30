@@ -6,6 +6,7 @@ import { SourceSheet } from "@/components/organisms/SourceSheet";
 import { Button } from "@/components/ui/button";
 import { SourcesFilter } from "@/components/molecules/SourcesFilter";
 import { SourcesTable } from "@/components/organisms/SourcesTable";
+import { DetailTemplate } from "@/components/templates/DetailTemplate";
 import type { SourceWithProfile } from "@/components/organisms/SourceRow";
 import type { SourcePlatform } from "@/lib/schemas/source";
 
@@ -62,44 +63,59 @@ export default function SourcesPage() {
   };
 
   if (error) {
-    return <div className="p-6 text-destructive">Error loading sources: {error}</div>;
+    return <div className="p-12 text-center text-destructive font-heading">Error loading repertoire: {error}</div>;
   }
 
   return (
-    <div className="flex flex-col gap-8 p-6 max-w-7xl mx-auto">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-display-sm font-bold tracking-tight">Source Library</h1>
-          <p className="text-body-sm text-muted-foreground mt-1">
-            Browse and manage research starting points.
-          </p>
-        </div>
-        <SourceSheet trigger={<Button size="lg" className="rounded-full px-6 shadow-md">Add Source</Button>} />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-8 items-start">
-        <aside className="lg:sticky lg:top-6 flex flex-col gap-6 p-6 rounded-2xl border border-border bg-surface-container-low shadow-sm">
-          <SourcesFilter
-            allBrands={allBrands}
-            selectedBrands={selectedBrands}
-            selectedPlatform={selectedPlatform}
-            onToggleBrand={toggleBrand}
-            onSelectPlatform={setSelectedPlatform}
-          />
-        </aside>
-
-        <main className="flex flex-col gap-4">
-          <div className="flex items-center justify-between text-label-md text-muted-foreground px-1">
-            <span>Showing {filteredSources.length} sources</span>
+    <DetailTemplate
+      title="Source Library"
+      breadcrumb={<span>Research Repertoire</span>}
+      sideContent={
+        <aside className="space-y-8">
+          <div className="p-8 bg-foreground text-background space-y-4">
+            <h3 className="text-[10px] uppercase tracking-[0.2em] font-bold opacity-60">
+              New Acquisition
+            </h3>
+            <p className="text-xs opacity-80 leading-relaxed italic">
+              Record a new Yupoo album or social media profile for future
+              sourcing reference.
+            </p>
+            <SourceSheet
+              trigger={
+                <Button className="w-full bg-background text-foreground hover:bg-background/90 rounded-none h-12 uppercase tracking-widest text-[10px] font-bold">
+                  Register Source
+                </Button>
+              }
+            />
           </div>
-          
-          <SourcesTable
-            sources={filteredSources}
-            onClearFilters={clearFilters}
-            isFiltered={selectedBrands.length > 0 || selectedPlatform !== "all"}
-          />
-        </main>
+
+          <div className="p-8 border border-border/40 space-y-6">
+            <h3 className="text-[10px] uppercase tracking-[0.2em] font-bold opacity-40">
+              Curation Filters
+            </h3>
+            <SourcesFilter
+              allBrands={allBrands}
+              selectedBrands={selectedBrands}
+              selectedPlatform={selectedPlatform}
+              onToggleBrand={toggleBrand}
+              onSelectPlatform={setSelectedPlatform}
+            />
+          </div>
+        </aside>
+      }
+    >
+      <div className="space-y-4">
+        <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.1em] text-muted-foreground/60 px-1 border-b border-border/20 pb-4">
+          <span>Cataloged Volume: {filteredSources.length}</span>
+          {isLoading && <span className="animate-pulse italic">Retrieving archives...</span>}
+        </div>
+
+        <SourcesTable
+          sources={filteredSources}
+          onClearFilters={clearFilters}
+          isFiltered={selectedBrands.length > 0 || selectedPlatform !== "all"}
+        />
       </div>
-    </div>
+    </DetailTemplate>
   );
 }

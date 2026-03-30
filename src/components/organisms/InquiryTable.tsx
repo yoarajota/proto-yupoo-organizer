@@ -20,34 +20,36 @@ interface InquiryTableProps {
 export function InquiryTable({ inquiries, showProductName, className, emptyMessage }: InquiryTableProps) {
   if (inquiries.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center p-12 border border-dashed rounded-lg bg-muted/20">
-        <p className="text-body-sm text-muted-foreground text-center">
-          {emptyMessage || "No inquiries yet — add one to get started."}
+      <div className="flex flex-col items-center justify-center p-20 border border-dashed border-border/60 bg-muted/5 animate-in fade-in zoom-in-95 duration-700">
+        <p className="text-xs uppercase tracking-widest text-muted-foreground/60 italic font-medium">
+          {emptyMessage || "Inventory is empty."}
         </p>
       </div>
-    )
+    );
   }
 
   return (
-    <div className={cn("rounded-md border bg-card", className)}>
+    <div className={cn("overflow-hidden", className)}>
       <Table>
         <TableHeader>
-          <TableRow className="h-[48px] bg-muted/50">
-            {showProductName && <TableHead className="w-[180px] text-label-md">Product</TableHead>}
-            <TableHead className="w-[200px] text-label-md">Supplier</TableHead>
-            <TableHead className="w-[160px] text-label-md">Status</TableHead>
-            <TableHead className="w-[100px] text-label-md">Best Price</TableHead>
-            <TableHead className="text-label-md">Notes</TableHead>
-            <TableHead className="text-right text-label-md">Activity</TableHead>
+          <TableRow className="border-b-2 border-foreground/10 hover:bg-transparent">
+            {showProductName && <TableHead className="text-[10px] uppercase tracking-widest text-muted-foreground py-6">Reference</TableHead>}
+            <TableHead className="text-[10px] uppercase tracking-widest text-muted-foreground py-6">Supplier</TableHead>
+            <TableHead className="text-[10px] uppercase tracking-widest text-muted-foreground py-6">Status</TableHead>
+            <TableHead className="text-[10px] uppercase tracking-widest text-muted-foreground py-6">Valuation</TableHead>
+            <TableHead className="text-[10px] uppercase tracking-widest text-muted-foreground py-6">Annotations</TableHead>
+            <TableHead className="text-right text-[10px] uppercase tracking-widest text-muted-foreground py-6">Last Activity</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {inquiries.map((inquiry) => (
+          {inquiries.map((inquiry, i) => (
             <InquiryRow 
               key={inquiry.id} 
               inquiry={inquiry} 
               showProductName={showProductName}
-              productName={inquiry.products?.notes?.slice(0, 30)} // Simplified name for now
+              productName={inquiry.products?.notes?.slice(0, 30)}
+              className={cn("animate-in fade-in slide-in-from-bottom-2 duration-500")}
+              style={{ animationDelay: `${i * 50}ms` } as any}
             />
           ))}
         </TableBody>

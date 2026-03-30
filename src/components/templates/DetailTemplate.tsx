@@ -1,19 +1,40 @@
 interface DetailTemplateProps {
-  breadcrumb: React.ReactNode
-  title: string
-  children: React.ReactNode
-  sideContent?: React.ReactNode
+  breadcrumb: React.ReactNode;
+  title: string;
+  children: React.ReactNode;
+  sideContent?: React.ReactNode;
 }
 
-export function DetailTemplate({ breadcrumb, title, children, sideContent }: DetailTemplateProps) {
+export function DetailTemplate({
+  breadcrumb,
+  title,
+  children,
+  sideContent,
+}: DetailTemplateProps) {
   return (
-    <div className="max-w-5xl mx-auto px-4 py-6">
-      <div className="mb-1 text-body-sm text-muted-foreground">{breadcrumb}</div>
-      <h1 className="text-body-md font-semibold mb-6">{title}</h1>
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
-        <div>{children}</div>
-        {sideContent && <div>{sideContent}</div>}
+    <div className="max-w-7xl mx-auto">
+      <header className="mb-12">
+        <div className="mb-2 text-[10px] uppercase tracking-[0.2em] text-muted-foreground/60">
+          {breadcrumb}
+        </div>
+        <h1 className="text-4xl md:text-5xl font-heading tracking-tight text-foreground">
+          {title}
+        </h1>
+      </header>
+
+      <div className={cn(
+        "grid grid-cols-1 gap-12",
+        sideContent ? "lg:grid-cols-[1fr_380px]" : "lg:grid-cols-1"
+      )}>
+        <section className="space-y-8">{children}</section>
+        {sideContent && (
+          <aside className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-1000 delay-300">
+            {sideContent}
+          </aside>
+        )}
       </div>
     </div>
-  )
+  );
 }
+
+import { cn } from "@/lib/utils";

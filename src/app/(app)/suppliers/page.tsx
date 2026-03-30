@@ -2,11 +2,10 @@ import { createClient } from "@/lib/supabase/server";
 import { SupplierSheet } from "@/components/organisms/SupplierSheet";
 import { SupplierDirectory } from "@/components/organisms/SupplierDirectory";
 import { Button } from "@/components/ui/button";
+import { DetailTemplate } from "@/components/templates/DetailTemplate";
 
 export default async function SuppliersPage() {
   const supabase = await createClient();
-
-  // inquiries table is correctly typed now
   const db = supabase;
 
   const [
@@ -46,21 +45,30 @@ export default async function SuppliersPage() {
 
   const allBrands = [...new Set(supplierList.flatMap((s) => s.brands))].sort();
 
-  const addSupplierTrigger = (
-    <SupplierSheet trigger={<Button>Add Supplier</Button>} />
-  );
-
   return (
-    <div className="flex flex-col gap-6 p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-body-md font-semibold">Suppliers</h1>
-        <SupplierSheet trigger={<Button>Add Supplier</Button>} />
-      </div>
+    <DetailTemplate
+      title="Direct Suppliers"
+      breadcrumb={<span>Registry</span>}
+      sideContent={
+        <div className="p-8 bg-foreground/5 space-y-4">
+          <h3 className="text-[10px] uppercase tracking-widest font-bold opacity-40">Add Entry</h3>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Record a new direct factory or primary wholesale contact to track your sourcing network.
+          </p>
+          <SupplierSheet 
+            trigger={
+              <Button className="w-full bg-foreground text-background hover:bg-foreground/90 rounded-none h-12 uppercase tracking-widest text-[10px] font-bold">
+                Create Supplier Card
+              </Button>
+            } 
+          />
+        </div>
+      }
+    >
       <SupplierDirectory
         suppliers={supplierStats}
         allBrands={allBrands}
-        addSupplierTrigger={addSupplierTrigger}
       />
-    </div>
+    </DetailTemplate>
   );
 }
