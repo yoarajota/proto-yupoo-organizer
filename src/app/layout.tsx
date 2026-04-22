@@ -1,14 +1,20 @@
 import type { Metadata } from "next";
-import { Playfair_Display, Instrument_Sans } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
 
-const playfair = Playfair_Display({
-  variable: "--font-heading",
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-mono",
   subsets: ["latin"],
 });
 
-const instrument = Instrument_Sans({
+const jetbrainsMonoHeading = JetBrains_Mono({
+  variable: "--font-heading",
+  subsets: ["latin"],
+  weight: ["700"],
+});
+
+const inter = Inter({
   variable: "--font-sans",
   subsets: ["latin"],
 });
@@ -24,7 +30,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${playfair.variable} ${instrument.variable} h-full antialiased`}>
+    <html
+      lang="en"
+      className={`${jetbrainsMonoHeading.variable} ${inter.variable} ${jetbrainsMono.variable} h-full antialiased`}
+    >
       <body className="min-h-full flex flex-col font-sans selection:bg-primary/20">
         <div className="fixed inset-0 pointer-events-none z-[9999] opacity-[0.03] mix-blend-multiply grain-overlay" />
         <TooltipProvider>{children}</TooltipProvider>

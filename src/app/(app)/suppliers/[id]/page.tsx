@@ -32,8 +32,8 @@ export default async function SupplierDetailPage({
     <DetailTemplate
       breadcrumb={
         <>
-          <Link href="/suppliers" className="text-muted-foreground hover:text-foreground">
-            Suppliers
+          <Link href="/workspace" className="text-muted-foreground hover:text-foreground">
+            Workspace
           </Link>
           <span className="text-muted-foreground mx-1">›</span>
           <span>{supplier.name}</span>

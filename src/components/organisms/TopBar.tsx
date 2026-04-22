@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { signOutAndRedirect } from "@/actions/groups";
-import { cn } from "@/lib/utils";
 
 interface TopBarProps {
   userEmail?: string;
@@ -20,12 +19,6 @@ export default function TopBar({ userEmail }: TopBarProps) {
           </span>
         )}
         <nav className="flex items-center gap-4">
-          <Link
-            href="/settings"
-            className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Settings
-          </Link>
           <form action={signOutAndRedirect}>
             <button
               type="submit"

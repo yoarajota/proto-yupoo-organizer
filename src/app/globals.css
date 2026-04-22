@@ -1,5 +1,4 @@
 @import "tailwindcss";
-@import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
@@ -9,7 +8,7 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
   --font-heading: var(--font-heading);
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-mono: var(--font-mono);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -67,83 +66,85 @@
 }
 
 :root {
-  /* Sourcing Atelier - Light Palette (Refined Bone & Deep Charcoal) */
-  --background: oklch(0.985 0.005 60);
-  --foreground: oklch(0.15 0.01 20);
-  --card: oklch(0.975 0.005 60);
-  --card-foreground: oklch(0.15 0.01 20);
-  --popover: oklch(0.985 0.005 60);
-  --popover-foreground: oklch(0.15 0.01 20);
+  /* Terminal Palette - Light Mode */
+  --background: hsl(0, 0%, 100%);
+  --foreground: hsl(240, 10%, 4%);
+  --card: hsl(0, 0%, 100%);
+  --card-foreground: hsl(240, 10%, 4%);
+  --popover: hsl(0, 0%, 100%);
+  --popover-foreground: hsl(240, 10%, 4%);
 
-  /* Artisanal Ochre Primary */
-  --primary: oklch(0.55 0.12 60);
-  --primary-foreground: oklch(0.985 0.005 60);
+  /* Neon Green/Emerald Primary */
+  --primary: hsl(142, 71%, 45%);
+  --primary-foreground: hsl(240, 10%, 4%);
 
-  --secondary: oklch(0.92 0.01 60);
-  --secondary-foreground: oklch(0.15 0.01 20);
-  --muted: oklch(0.94 0.01 60);
-  --muted-foreground: oklch(0.45 0.01 20);
-  --accent: oklch(0.92 0.02 60);
-  --accent-foreground: oklch(0.15 0.01 20);
-  --destructive: oklch(0.5 0.15 25);
-  --destructive-foreground: oklch(0.985 0.005 60);
+  --secondary: hsl(240, 5%, 96%);
+  --secondary-foreground: hsl(240, 10%, 4%);
+  --muted: hsl(240, 5%, 96%);
+  --muted-foreground: hsl(240, 5%, 45%);
+  --accent: hsl(240, 5%, 96%);
+  --accent-foreground: hsl(240, 10%, 4%);
+  --destructive: hsl(0, 84%, 60%);
+  --destructive-foreground: hsl(0, 0%, 100%);
 
-  --border: oklch(0.85 0.01 60);
-  --input: oklch(0.85 0.01 60);
-  --ring: oklch(0.55 0.12 60);
+  --border: hsl(240, 6%, 90%);
+  --input: hsl(240, 6%, 90%);
+  --ring: hsl(142, 71%, 45%);
 
-  --radius: 0rem; /* Sharp, editorial corners */
+  --radius: 0rem;
 
-  --sidebar: oklch(0.975 0.005 60);
-  --sidebar-foreground: oklch(0.15 0.01 20);
-  --sidebar-primary: oklch(0.55 0.12 60);
-  --sidebar-primary-foreground: oklch(0.985 0.005 60);
-  --sidebar-accent: oklch(0.92 0.02 60);
-  --sidebar-accent-foreground: oklch(0.15 0.01 20);
-  --sidebar-border: oklch(0.85 0.01 60);
-  --sidebar-ring: oklch(0.55 0.12 60);
+  --sidebar: hsl(0, 0%, 100%);
+  --sidebar-foreground: hsl(240, 10%, 4%);
+  --sidebar-primary: hsl(142, 71%, 45%);
+  --sidebar-primary-foreground: hsl(0, 0%, 100%);
+  --sidebar-accent: hsl(240, 5%, 96%);
+  --sidebar-accent-foreground: hsl(240, 10%, 4%);
+  --sidebar-border: hsl(240, 6%, 90%);
+  --sidebar-ring: hsl(142, 71%, 45%);
 }
 
 .dark {
-  /* Sourcing Atelier - Dark Palette (Deep Nocturne) */
-  --background: oklch(0.12 0.01 250);
-  --foreground: oklch(0.92 0.01 250);
-  --card: oklch(0.15 0.01 250);
-  --card-foreground: oklch(0.92 0.01 250);
-  --popover: oklch(0.12 0.01 250);
-  --popover-foreground: oklch(0.92 0.01 250);
+  /* Terminal Palette - Dark Mode */
+  --background: hsl(240, 10%, 4%);
+  --foreground: hsl(0, 0%, 100%);
+  --card: hsl(240, 10%, 4%);
+  --card-foreground: hsl(0, 0%, 100%);
+  --popover: hsl(240, 10%, 4%);
+  --popover-foreground: hsl(0, 0%, 100%);
 
-  --primary: oklch(0.65 0.1 65);
-  --primary-foreground: oklch(0.12 0.01 250);
+  --primary: hsl(142, 71%, 45%);
+  --primary-foreground: hsl(240, 10%, 4%);
 
-  --secondary: oklch(0.2 0.01 250);
-  --secondary-foreground: oklch(0.92 0.01 250);
-  --muted: oklch(0.18 0.01 250);
-  --muted-foreground: oklch(0.6 0.01 250);
-  --accent: oklch(0.22 0.02 250);
-  --accent-foreground: oklch(0.92 0.01 250);
-  --destructive: oklch(0.45 0.15 25);
+  --secondary: hsl(240, 4%, 16%);
+  --secondary-foreground: hsl(0, 0%, 100%);
+  --muted: hsl(240, 4%, 16%);
+  --muted-foreground: hsl(240, 5%, 65%);
+  --accent: hsl(240, 4%, 16%);
+  --accent-foreground: hsl(0, 0%, 100%);
+  --destructive: hsl(0, 62%, 30%);
+  --destructive-foreground: hsl(0, 0%, 100%);
 
-  --border: oklch(0.25 0.01 250);
-  --input: oklch(0.25 0.01 250);
-  --ring: oklch(0.65 0.1 65);
+  --border: hsl(240, 4%, 16%);
+  --input: hsl(240, 4%, 16%);
+  --ring: hsl(142, 71%, 45%);
 
-  --sidebar: oklch(0.15 0.01 250);
-  --sidebar-foreground: oklch(0.92 0.01 250);
-  --sidebar-primary: oklch(0.65 0.1 65);
-  --sidebar-primary-foreground: oklch(0.12 0.01 250);
-  --sidebar-accent: oklch(0.22 0.02 250);
-  --sidebar-accent-foreground: oklch(0.92 0.01 250);
-  --sidebar-border: oklch(0.25 0.01 250);
-  --sidebar-ring: oklch(0.65 0.1 65);
+  --sidebar: hsl(240, 10%, 4%);
+  --sidebar-foreground: hsl(0, 0%, 100%);
+  --sidebar-primary: hsl(142, 71%, 45%);
+  --sidebar-primary-foreground: hsl(0, 0%, 100%);
+  --sidebar-accent: hsl(240, 4%, 16%);
+  --sidebar-accent-foreground: hsl(0, 0%, 100%);
+  --sidebar-border: hsl(240, 4%, 16%);
+  --sidebar-ring: hsl(142, 71%, 45%);
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50 transition-colors duration-300;
+    @apply border-border outline-ring/50;
   }
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "cv05", "tnum", "ss01";
   }
   html {
     @apply font-sans;
@@ -159,45 +160,6 @@
 }
 
 @layer utilities {
-  .grain-overlay {
-    background-image: url("https://grainy-gradients.vercel.app/noise.svg");
-    animation: grain 8s steps(10) infinite;
-  }
-
-  @keyframes grain {
-    0%,
-    100% {
-      transform: translate(0, 0);
-    }
-    10% {
-      transform: translate(-5%, -10%);
-    }
-    20% {
-      transform: translate(-15%, 5%);
-    }
-    30% {
-      transform: translate(7%, -25%);
-    }
-    40% {
-      transform: translate(-5%, 25%);
-    }
-    50% {
-      transform: translate(-15%, 10%);
-    }
-    60% {
-      transform: translate(15%, 0%);
-    }
-    70% {
-      transform: translate(0%, 15%);
-    }
-    80% {
-      transform: translate(3%, 35%);
-    }
-    90% {
-      transform: translate(-10%, 10%);
-    }
-  }
-
   .text-editorial {
     @apply font-heading italic;
   }

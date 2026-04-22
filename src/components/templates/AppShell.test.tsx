@@ -4,7 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import AppShell from "./AppShell";
 
 vi.mock("next/navigation", () => ({
-  usePathname: vi.fn().mockReturnValue("/active-inquiries"),
+  usePathname: vi.fn().mockReturnValue("/workspace"),
 }));
 
 function renderAppShell(children: React.ReactNode = <div>Test content</div>) {

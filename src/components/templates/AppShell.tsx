@@ -2,16 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { MessageSquare, Store, Package, BookOpen } from "lucide-react";
+import { LayoutGrid, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TopBar from "@/components/organisms/TopBar";
 import SideNav from "@/components/organisms/SideNav";
 
 const navItems = [
-  { href: "/active-inquiries", label: "Inquiries", icon: MessageSquare },
-  { href: "/suppliers", label: "Suppliers", icon: Store },
-  { href: "/products", label: "Products", icon: Package },
-  { href: "/sources", label: "Sources", icon: BookOpen },
+  { href: "/workspace", label: "Workspace", icon: LayoutGrid },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 function BottomTabBar() {
@@ -23,7 +21,12 @@ function BottomTabBar() {
       aria-label="Bottom navigation"
     >
       {navItems.map(({ href, label, icon: Icon }) => {
-        const isActive = pathname.startsWith(href);
+        const isWorkspaceRoute =
+          pathname.startsWith("/workspace") ||
+          pathname.startsWith("/suppliers") ||
+          pathname.startsWith("/products") ||
+          pathname.startsWith("/sources");
+        const isActive = href === "/workspace" ? isWorkspaceRoute : pathname.startsWith(href);
         return (
           <Link
             key={href}

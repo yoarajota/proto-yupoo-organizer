@@ -1,0 +1,4 @@
+global:
+  model_profile: "balanced"
+  obsidian_vault_path: ""
+  org: "yoarajota"

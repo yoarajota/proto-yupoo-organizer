@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { MessageSquare, Store, Package, BookOpen } from "lucide-react";
+import { LayoutGrid, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -11,10 +11,8 @@ import {
 } from "@/components/ui/tooltip";
 
 const navItems = [
-  { href: "/active-inquiries", label: "Inquiries", icon: MessageSquare },
-  { href: "/suppliers", label: "Suppliers", icon: Store },
-  { href: "/products", label: "Products", icon: Package },
-  { href: "/sources", label: "Sources", icon: BookOpen },
+  { href: "/workspace", label: "Workspace", icon: LayoutGrid },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 interface NavItemProps {
@@ -26,7 +24,13 @@ interface NavItemProps {
 
 function NavItem({ href, label, icon: Icon, collapsed }: NavItemProps) {
   const pathname = usePathname();
-  const isActive = pathname.startsWith(href);
+  const isWorkspaceRoute =
+    pathname.startsWith("/workspace") ||
+    pathname.startsWith("/suppliers") ||
+    pathname.startsWith("/products") ||
+    pathname.startsWith("/sources");
+
+  const isActive = href === "/workspace" ? isWorkspaceRoute : pathname.startsWith(href);
 
   const linkContent = (
     <Link

@@ -50,7 +50,7 @@ export async function createProduct(storagePath: string, altText: string) {
     keepalive: true,
   }).catch((err) => console.error("Failed to trigger pHash computation:", err));
 
-  revalidatePath("/products");
+  revalidatePath("/workspace");
   return { data: { product, hash }, error: null };
 }
 
@@ -91,7 +91,7 @@ export async function addProductPhoto(
     keepalive: true,
   }).catch((err) => console.error("Failed to trigger pHash computation:", err));
 
-  revalidatePath("/products");
+  revalidatePath("/workspace");
   revalidatePath(`/products/${productId}`);
   return { data: hash, error: null };
 }
@@ -122,7 +122,7 @@ export async function updateProduct(
       },
     };
   // Note: updated_at auto-set by products_updated_at trigger (DO NOT manually set it)
-  revalidatePath("/products");
+  revalidatePath("/workspace");
   revalidatePath(`/products/${productId}`);
   return { data, error: null };
 }
@@ -204,7 +204,7 @@ export async function dismissSimilarityMatch(matchId: string) {
     };
   }
 
-  revalidatePath("/products");
+  revalidatePath("/workspace");
   // Ideally revalidate the specific product page, but we'd need its ID.
   // The client can call revalidate if needed, or we can just revalidate all.
 

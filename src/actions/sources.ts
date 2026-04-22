@@ -30,7 +30,7 @@ export async function createSource(values: SourceCreateValues) {
 
   if (error) return { data: null, error: { message: error.message } };
 
-  revalidatePath("/sources");
+  revalidatePath("/workspace");
   return { data, error: null };
 }
 
@@ -50,6 +50,6 @@ export async function toggleSourceActive(id: string, isActive: boolean) {
 
   if (error) return { data: null, error: { message: error.message } };
 
-  revalidatePath("/sources");
+  revalidatePath("/workspace");
   return { data, error: null };
 }

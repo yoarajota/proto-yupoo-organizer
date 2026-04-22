@@ -32,7 +32,7 @@ export async function createInquiry(values: InquiryCreateValues) {
 
   if (error) return { data: null, error: { message: error.message } };
 
-  revalidatePath("/active-inquiries");
+  revalidatePath("/workspace");
   revalidatePath(`/products/${parsed.data.product_id}`);
   return { data, error: null };
 }
@@ -63,7 +63,7 @@ export async function updateInquiry(id: string, values: InquiryUpdateValues) {
       error: { message: "Inquiry not found or permission denied" },
     };
 
-  revalidatePath("/active-inquiries");
+  revalidatePath("/workspace");
   revalidatePath(`/products/${data.product_id}`);
   return { data, error: null };
 }
@@ -85,7 +85,7 @@ export async function deleteInquiry(id: string) {
 
   if (error) return { error: { message: error.message } };
 
-  revalidatePath("/active-inquiries");
+  revalidatePath("/workspace");
   if (inquiry) {
     revalidatePath(`/products/${inquiry.product_id}`);
   }

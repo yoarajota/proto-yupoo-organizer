@@ -47,7 +47,7 @@ export function LoginForm() {
         })
         return
       }
-      router.push("/active-inquiries")
+      router.push("/workspace")
     })
   }
 

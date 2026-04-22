@@ -49,8 +49,8 @@ export default async function ProductDetailPage({
   return (
     <DetailTemplate
       breadcrumb={
-        <Link href="/products" className="hover:text-foreground transition-colors">
-          Products
+        <Link href="/workspace" className="hover:text-foreground transition-colors">
+          Workspace
         </Link>
       }
       title="Product"

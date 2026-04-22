@@ -19,7 +19,7 @@ export async function createSupplier(formData: SupplierFormValues) {
     .single()
 
   if (error) return { data: null, error: { message: error.message } }
-  revalidatePath('/suppliers')
+  revalidatePath('/workspace')
   return { data, error: null }
 }
 
@@ -39,7 +39,7 @@ export async function updateSupplier(id: string, formData: SupplierFormValues) {
     .single()
 
   if (error) return { data: null, error: { message: error.message } }
-  revalidatePath('/suppliers')
+  revalidatePath('/workspace')
   revalidatePath('/suppliers/' + id)
   return { data, error: null }
 }
