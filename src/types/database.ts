@@ -172,6 +172,214 @@ export type Database = {
           },
         ]
       }
+      discovered_categories: {
+        Row: {
+          brand_signal: string | null
+          category_path: string[]
+          classification_confidence: number | null
+          classification_method: string | null
+          classification_status: string
+          confidence: number
+          created_at: string
+          extracted_at: string
+          id: string
+          mission_id: string
+          normalized_label: string | null
+          product_signal: string | null
+          raw_label: string
+          source_url: string
+        }
+        Insert: {
+          brand_signal?: string | null
+          category_path: string[]
+          classification_confidence?: number | null
+          classification_method?: string | null
+          classification_status?: string
+          confidence?: number
+          created_at?: string
+          extracted_at?: string
+          id?: string
+          mission_id: string
+          normalized_label?: string | null
+          product_signal?: string | null
+          raw_label?: string
+          source_url: string
+        }
+        Update: {
+          brand_signal?: string | null
+          category_path?: string[]
+          classification_confidence?: number | null
+          classification_method?: string | null
+          classification_status?: string
+          confidence?: number
+          created_at?: string
+          extracted_at?: string
+          id?: string
+          mission_id?: string
+          normalized_label?: string | null
+          product_signal?: string | null
+          raw_label?: string
+          source_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "discovered_categories_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "sourcing_missions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      discovered_suppliers: {
+        Row: {
+          category_refs: string[]
+          confidence: number
+          created_at: string
+          id: string
+          last_seen_at: string
+          mission_id: string
+          normalized_category_refs: string[]
+          source_url: string
+          supplier_key: string
+          updated_at: string
+        }
+        Insert: {
+          category_refs?: string[]
+          confidence?: number
+          created_at?: string
+          id?: string
+          last_seen_at?: string
+          mission_id: string
+          normalized_category_refs?: string[]
+          source_url: string
+          supplier_key: string
+          updated_at?: string
+        }
+        Update: {
+          category_refs?: string[]
+          confidence?: number
+          created_at?: string
+          id?: string
+          last_seen_at?: string
+          mission_id?: string
+          normalized_category_refs?: string[]
+          source_url?: string
+          supplier_key?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "discovered_suppliers_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "sourcing_missions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mission_category_classifications: {
+        Row: {
+          canonical_brand: string | null
+          canonical_product_type: string | null
+          classification_confidence: number | null
+          classification_method: string
+          classification_status: string
+          created_at: string
+          display_label: string
+          evidence: Json
+          id: string
+          mission_id: string
+          source_category_id: string
+          updated_at: string
+        }
+        Insert: {
+          canonical_brand?: string | null
+          canonical_product_type?: string | null
+          classification_confidence?: number | null
+          classification_method: string
+          classification_status: string
+          created_at?: string
+          display_label: string
+          evidence?: Json
+          id?: string
+          mission_id: string
+          source_category_id: string
+          updated_at?: string
+        }
+        Update: {
+          canonical_brand?: string | null
+          canonical_product_type?: string | null
+          classification_confidence?: number | null
+          classification_method?: string
+          classification_status?: string
+          created_at?: string
+          display_label?: string
+          evidence?: Json
+          id?: string
+          mission_id?: string
+          source_category_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mission_category_classifications_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "sourcing_missions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mission_category_classifications_source_category_id_fkey"
+            columns: ["source_category_id"]
+            isOneToOne: false
+            referencedRelation: "discovered_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mission_supplier_matches: {
+        Row: {
+          created_at: string
+          id: string
+          mission_id: string
+          rank_reasons: Json
+          rank_score: number
+          supplier_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          mission_id: string
+          rank_reasons?: Json
+          rank_score: number
+          supplier_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          mission_id?: string
+          rank_reasons?: Json
+          rank_score?: number
+          supplier_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mission_supplier_matches_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "sourcing_missions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mission_supplier_matches_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "discovered_suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -237,6 +445,95 @@ export type Database = {
             columns: ["source_photo_hash_id"]
             isOneToOne: false
             referencedRelation: "photo_hashes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sourcing_mission_stage_metrics: {
+        Row: {
+          created_at: string
+          duration_ms: number | null
+          finished_at: string | null
+          id: string
+          mission_id: string
+          stage_name: string
+          started_at: string
+        }
+        Insert: {
+          created_at?: string
+          finished_at?: string | null
+          id?: string
+          mission_id: string
+          stage_name: string
+          started_at: string
+        }
+        Update: {
+          created_at?: string
+          finished_at?: string | null
+          id?: string
+          mission_id?: string
+          stage_name?: string
+          started_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sourcing_mission_stage_metrics_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "sourcing_missions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sourcing_missions: {
+        Row: {
+          constraints: Json
+          created_at: string
+          created_by: string
+          destination_context: string | null
+          first_suggestion_batch_at: string | null
+          first_valid_quote_at: string | null
+          id: string
+          objective: string
+          product_intent: string
+          seed_url: string
+          status: Database["public"]["Enums"]["sourcing_mission_status"]
+          updated_at: string
+        }
+        Insert: {
+          constraints?: Json
+          created_at?: string
+          created_by: string
+          destination_context?: string | null
+          first_suggestion_batch_at?: string | null
+          first_valid_quote_at?: string | null
+          id?: string
+          objective?: string
+          product_intent: string
+          seed_url: string
+          status?: Database["public"]["Enums"]["sourcing_mission_status"]
+          updated_at?: string
+        }
+        Update: {
+          constraints?: Json
+          created_at?: string
+          created_by?: string
+          destination_context?: string | null
+          first_suggestion_batch_at?: string | null
+          first_valid_quote_at?: string | null
+          id?: string
+          objective?: string
+          product_intent?: string
+          seed_url?: string
+          status?: Database["public"]["Enums"]["sourcing_mission_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sourcing_missions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -356,6 +653,20 @@ export type Database = {
         | "decided"
         | "ghosted"
       platform_type: "reddit" | "discord" | "whatsapp" | "other"
+      sourcing_mission_status:
+        | "created"
+        | "scanning"
+        | "classifying_categories"
+        | "matching"
+        | "suggestions_ready"
+        | "awaiting_approval"
+        | "approved_for_outreach"
+        | "replies_received"
+        | "offers_normalized"
+        | "completed"
+        | "blocked_needs_input"
+        | "failed_retrying"
+        | "failed_terminal"
       user_role: "admin" | "member"
     }
     CompositeTypes: {
@@ -495,8 +806,22 @@ export const Constants = {
         "ghosted",
       ],
       platform_type: ["reddit", "discord", "whatsapp", "other"],
+      sourcing_mission_status: [
+        "created",
+        "scanning",
+        "classifying_categories",
+        "matching",
+        "suggestions_ready",
+        "awaiting_approval",
+        "approved_for_outreach",
+        "replies_received",
+        "offers_normalized",
+        "completed",
+        "blocked_needs_input",
+        "failed_retrying",
+        "failed_terminal",
+      ],
       user_role: ["admin", "member"],
     },
   },
 } as const
-

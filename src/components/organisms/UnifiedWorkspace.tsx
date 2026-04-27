@@ -6,6 +6,7 @@ import {
   MessageSquare,
   Package,
   Store,
+  Target,
   type LucideIcon,
 } from "lucide-react";
 import type { Database } from "@/types/database";
@@ -25,6 +26,8 @@ import type { SourceWithProfile } from "@/components/organisms/SourceRow";
 import type { SourcePlatform } from "@/lib/schemas/source";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { MissionSheet } from "@/components/organisms/MissionSheet";
+import { MissionsTable, type MissionRowType } from "@/components/organisms/MissionsTable";
 
 type ProductRow = Database["public"]["Tables"]["products"]["Row"];
 type PhotoHashRow = Database["public"]["Tables"]["photo_hashes"]["Row"];
@@ -35,9 +38,10 @@ type ProductForCard = ProductRow & {
   })[];
 };
 
-type SectionId = "inquiries" | "suppliers" | "products" | "sources";
+type SectionId = "missions" | "inquiries" | "suppliers" | "products" | "sources";
 
 interface UnifiedWorkspaceProps {
+  missions: MissionRowType[];
   inquiries: InquiryWithSupplier[];
   suppliers: SupplierWithStats[];
   products: ProductForCard[];
@@ -52,6 +56,11 @@ const sectionMeta: Record<
     icon: LucideIcon;
   }
 > = {
+  missions: {
+    label: "Missions",
+    caption: "Autonomous sourcing agents.",
+    icon: Target,
+  },
   inquiries: {
     label: "Inquiries",
     caption: "Active negotiations and follow-ups.",
@@ -75,12 +84,13 @@ const sectionMeta: Record<
 };
 
 export function UnifiedWorkspace({
+  missions,
   inquiries,
   suppliers,
   products,
   sources,
 }: UnifiedWorkspaceProps) {
-  const [activeSection, setActiveSection] = useState<SectionId>("inquiries");
+  const [activeSection, setActiveSection] = useState<SectionId>("missions");
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [selectedPlatform, setSelectedPlatform] = useState<
     SourcePlatform | "all"
@@ -118,6 +128,7 @@ export function UnifiedWorkspace({
   );
 
   const sectionCounts: Record<SectionId, number> = {
+    missions: missions.length,
     inquiries: inquiries.length,
     suppliers: suppliers.length,
     products: products.length,
@@ -221,6 +232,25 @@ export function UnifiedWorkspace({
             {sectionMeta[activeSection].caption}
           </p>
         </header>
+
+        {activeSection === "missions" && (
+          <div className="space-y-4 border border-border/60 bg-background p-4 sm:p-5">
+            <div className="flex flex-col gap-3 border-b border-border/50 pb-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs uppercase tracking-widest text-muted-foreground/70">
+                Kick off autonomous AI search
+              </p>
+              <MissionSheet
+                trigger={
+                  <Button className="h-9 rounded-none px-4 text-[10px] uppercase tracking-widest">
+                    New Mission
+                  </Button>
+                }
+              />
+            </div>
+
+            <MissionsTable missions={missions} />
+          </div>
+        )}
 
         {activeSection === "inquiries" && (
           <div className="border border-border/60 bg-background p-3 sm:p-5">
