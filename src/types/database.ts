@@ -140,34 +140,124 @@ export type Database = {
           },
         ]
       }
-      products: {
+      brands: {
         Row: {
           created_at: string
           created_by: string
           id: string
-          notes: string | null
+          name: string
+          slug: string
           updated_at: string
         }
         Insert: {
           created_at?: string
           created_by: string
           id?: string
-          notes?: string | null
+          name: string
+          slug: string
           updated_at?: string
         }
         Update: {
           created_at?: string
           created_by?: string
           id?: string
-          notes?: string | null
+          name?: string
+          slug?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "brands_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_types: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          name: string
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          name: string
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          name?: string
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_types_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      products: {
+        Row: {
+          brand_id: string | null
+          created_at: string
+          created_by: string
+          id: string
+          notes: string | null
+          product_type_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          brand_id?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          notes?: string | null
+          product_type_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          notes?: string | null
+          product_type_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "products_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "products_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_product_type_id_fkey"
+            columns: ["product_type_id"]
+            isOneToOne: false
+            referencedRelation: "product_types"
             referencedColumns: ["id"]
           },
         ]
@@ -185,6 +275,7 @@ export type Database = {
           id: string
           mission_id: string
           normalized_label: string | null
+          preview_image_urls: string[]
           product_signal: string | null
           raw_label: string
           source_url: string
@@ -201,6 +292,7 @@ export type Database = {
           id?: string
           mission_id: string
           normalized_label?: string | null
+          preview_image_urls?: string[]
           product_signal?: string | null
           raw_label?: string
           source_url: string
@@ -217,6 +309,7 @@ export type Database = {
           id?: string
           mission_id?: string
           normalized_label?: string | null
+          preview_image_urls?: string[]
           product_signal?: string | null
           raw_label?: string
           source_url?: string
@@ -584,7 +677,6 @@ export type Database = {
       }
       suppliers: {
         Row: {
-          brands: string[]
           created_at: string
           created_by: string
           id: string
@@ -599,7 +691,6 @@ export type Database = {
           yupoo_url: string
         }
         Insert: {
-          brands?: string[]
           created_at?: string
           created_by: string
           id?: string
@@ -614,7 +705,6 @@ export type Database = {
           yupoo_url: string
         }
         Update: {
-          brands?: string[]
           created_at?: string
           created_by?: string
           id?: string
@@ -634,6 +724,72 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_brands: {
+        Row: {
+          brand_id: string
+          created_at: string
+          supplier_id: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          supplier_id: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          supplier_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_brands_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_brands_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_product_types: {
+        Row: {
+          created_at: string
+          product_type_id: string
+          supplier_id: string
+        }
+        Insert: {
+          created_at?: string
+          product_type_id: string
+          supplier_id: string
+        }
+        Update: {
+          created_at?: string
+          product_type_id?: string
+          supplier_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_product_types_product_type_id_fkey"
+            columns: ["product_type_id"]
+            isOneToOne: false
+            referencedRelation: "product_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_product_types_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
         ]

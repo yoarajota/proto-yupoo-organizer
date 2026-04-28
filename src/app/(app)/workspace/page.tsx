@@ -1,18 +1,17 @@
 import { createClient } from "@/lib/supabase/server"
+import { groupMissionCategoryReviewItems, type MissionRowType } from "@/lib/mission-category-review"
 import { UnifiedWorkspace } from "@/components/organisms/UnifiedWorkspace"
 import type { Database } from "@/types/database"
 import type { InquiryWithSupplier } from "@/components/organisms/InquiryRow"
 import type { SourceWithProfile } from "@/components/organisms/SourceRow"
 import type { SupplierWithStats } from "@/components/organisms/SupplierDirectory"
-import type {
-  MissionCategoryReviewItem,
-  MissionRowType,
-} from "@/components/organisms/MissionsTable"
 
 type ProductRow = Database["public"]["Tables"]["products"]["Row"]
 type PhotoHashRow = Database["public"]["Tables"]["photo_hashes"]["Row"]
 
 type ProductForCard = ProductRow & {
+  brands?: { name: string } | null
+  product_types?: { name: string } | null
   photo_hashes: (PhotoHashRow & {
     similarity_matches?: { is_dismissed: boolean }[]
   })[]
@@ -30,13 +29,18 @@ export default async function ActiveInquiriesPage() {
     { data: sources },
     { data: missions },
     { data: pendingCategoryReviews },
+    { data: brands },
+    { data: productTypes },
   ] = await Promise.all([
     supabase
       .from("inquiries")
       .select("*, suppliers(name), products(notes, photo_hashes(storage_path, alt_text))")
       .not("status", "in", "('decided', 'ghosted')")
       .order("created_at", { ascending: false }),
-    supabase.from("suppliers").select("*").order("created_at", { ascending: false }),
+    supabase
+      .from("suppliers")
+      .select("*, supplier_brands(brand_id, brand:brands(name)), supplier_product_types(product_type_id, product_type:product_types(name))")
+      .order("created_at", { ascending: false }),
     supabase.from("inquiries").select("supplier_id, price").not("price", "is", null),
     supabase
       .from("inquiries")
@@ -44,7 +48,7 @@ export default async function ActiveInquiriesPage() {
       .in("status", ["sent", "price_received", "negotiating"]),
     supabase
       .from("products")
-      .select("*, photo_hashes(*, similarity_matches!source_photo_hash_id(is_dismissed))")
+      .select("*, brands(name), product_types(name), photo_hashes(*, similarity_matches!source_photo_hash_id(is_dismissed))")
       .order("created_at", { ascending: false }),
     supabase
       .from("sources")
@@ -57,15 +61,17 @@ export default async function ActiveInquiriesPage() {
     supabase
       .from("mission_category_classifications")
       .select(
-        "mission_id, source_category_id, display_label, canonical_brand, canonical_product_type, classification_confidence, classification_method, classification_status, evidence",
+        "mission_id, source_category_id, display_label, canonical_brand, canonical_product_type, classification_confidence, classification_method, classification_status, evidence, source_category:discovered_categories!mission_category_classifications_source_category_id_fkey(preview_image_urls, source_url)",
       )
       .eq("classification_status", "needs_review"),
+    supabase.from("brands").select("id, name").order("name"),
+    supabase.from("product_types").select("id, name").order("name"),
   ])
 
   const inquiryRows = (inquiries ?? []) as InquiryWithSupplier[]
 
   const supplierRows =
-    (suppliers ?? []) as Database["public"]["Tables"]["suppliers"]["Row"][]
+    (suppliers ?? []) as SupplierWithStats[]
   const priceRows = (inquiriesWithPrice ?? []) as {
     supplier_id: string | null
     price: number | null
@@ -94,60 +100,10 @@ export default async function ActiveInquiriesPage() {
 
   const productRows = (products ?? []) as ProductForCard[]
   const sourceRows = (sources ?? []) as SourceWithProfile[]
-  const reviewRows = (pendingCategoryReviews ?? []) as Array<{
-    mission_id: string
-    source_category_id: string
-    display_label: string
-    canonical_brand: string | null
-    canonical_product_type: string | null
-    classification_confidence: number | null
-    classification_method: string | null
-    classification_status: string
-    evidence: Record<string, unknown> | null
-  }>
-  const groupedReviewRows = reviewRows.reduce<Record<string, MissionCategoryReviewItem[]>>(
-    (accumulator, row) => {
-      const evidence = row.evidence ?? {}
-      const groupKey = [
-        row.mission_id,
-        String(evidence.normalized_label ?? row.display_label),
-        row.canonical_brand ?? "",
-        row.canonical_product_type ?? "",
-        String(evidence.decision_reason ?? ""),
-      ].join("::")
-
-      accumulator[row.mission_id] ??= []
-
-      const existingGroup = accumulator[row.mission_id]?.find((item) => item.group_key === groupKey)
-      if (existingGroup) {
-        existingGroup.occurrence_count += 1
-        existingGroup.category_ids.push(row.source_category_id)
-        return accumulator
-      }
-
-      accumulator[row.mission_id]?.push({
-        id: row.source_category_id,
-        mission_id: row.mission_id,
-        group_key: groupKey,
-        raw_label: String(evidence.raw_label ?? row.display_label),
-        normalized_label: String(evidence.normalized_label ?? row.display_label),
-        display_label: row.display_label,
-        brand_signal: row.canonical_brand,
-        product_signal: row.canonical_product_type,
-        classification_confidence: row.classification_confidence,
-        classification_method: row.classification_method,
-        classification_status: row.classification_status,
-        decision_reason: String(evidence.decision_reason ?? "needs_review"),
-        decision_reason_text: String(
-          evidence.decision_reason_text ?? "This label still needs manual review before matching can run.",
-        ),
-        occurrence_count: 1,
-        category_ids: [row.source_category_id],
-      })
-      return accumulator
-    },
-    {},
-  )
+  const reviewRows = (pendingCategoryReviews ?? []) as Parameters<
+    typeof groupMissionCategoryReviewItems
+  >[0]
+  const groupedReviewRows = groupMissionCategoryReviewItems(reviewRows)
 
   const missionRows = ((missions ?? []) as Array<{
     id: string
@@ -169,6 +125,8 @@ export default async function ActiveInquiriesPage() {
       suppliers={supplierStats}
       products={productRows}
       sources={sourceRows}
+      brands={brands ?? []}
+      productTypes={productTypes ?? []}
     />
   )
 }

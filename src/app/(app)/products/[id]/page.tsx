@@ -41,10 +41,12 @@ export default async function ProductDetailPage({
 
   const typedInquiries = inquiries || []
 
-  const { data: suppliers } = await supabase
-    .from('suppliers')
-    .select('id, name')
-    .order('name')
+  const [{ data: suppliers }, { data: brands }, { data: productTypes }] =
+    await Promise.all([
+      supabase.from('suppliers').select('id, name').order('name'),
+      supabase.from('brands').select('id, name').order('name'),
+      supabase.from('product_types').select('id, name').order('name'),
+    ])
 
   return (
     <DetailTemplate
@@ -92,6 +94,10 @@ export default async function ProductDetailPage({
               <ProductNotesForm
                 productId={id}
                 initialNotes={product.notes ?? ''}
+                initialBrandId={product.brand_id}
+                initialProductTypeId={product.product_type_id}
+                brands={brands ?? []}
+                productTypes={productTypes ?? []}
               />
             </section>
           </div>

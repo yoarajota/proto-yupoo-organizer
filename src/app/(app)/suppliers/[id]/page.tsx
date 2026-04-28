@@ -8,6 +8,7 @@ import { SupplierSheet } from "@/components/organisms/SupplierSheet"
 import { InquiryTable } from "@/components/organisms/InquiryTable"
 import { getInquiriesBySupplier } from "@/actions/inquiries"
 import { Button } from "@/components/ui/button"
+import { getSupplierBrandNames, getSupplierProductTypeNames } from "@/lib/supplier-catalog"
 import type { InquiryWithSupplier } from "@/components/organisms/InquiryRow"
 
 export default async function SupplierDetailPage({
@@ -19,14 +20,20 @@ export default async function SupplierDetailPage({
   const supabase = await createClient()
   const { data: supplier } = await supabase
     .from("suppliers")
-    .select("*")
+    .select("*, supplier_brands(brand_id, brand:brands(name)), supplier_product_types(product_type_id, product_type:product_types(name))")
     .eq("id", id)
     .single()
 
   if (!supplier) notFound()
 
-  const { data: inquiries } = await getInquiriesBySupplier(id)
+  const [{ data: inquiries }, { data: brands }, { data: productTypes }] = await Promise.all([
+    getInquiriesBySupplier(id),
+    supabase.from("brands").select("id, name").order("name"),
+    supabase.from("product_types").select("id, name").order("name"),
+  ])
   const typedInquiries = (inquiries || []) as InquiryWithSupplier[]
+  const linkedBrands = getSupplierBrandNames(supplier)
+  const linkedProductTypes = getSupplierProductTypeNames(supplier)
 
   return (
     <DetailTemplate
@@ -65,18 +72,29 @@ export default async function SupplierDetailPage({
             <p className="text-body-sm">{supplier.whatsapp_contact}</p>
           </div>
 
-          {supplier.brands && supplier.brands.length > 0 && (
+          {linkedBrands.length > 0 && (
             <div className="flex flex-col gap-1">
               <p className="text-label-sm font-medium text-muted-foreground uppercase tracking-widest">
                 Brands
               </p>
-              <BrandTagGroup brands={supplier.brands} />
+              <BrandTagGroup brands={linkedBrands} />
+            </div>
+          )}
+
+          {linkedProductTypes.length > 0 && (
+            <div className="flex flex-col gap-1">
+              <p className="text-label-sm font-medium text-muted-foreground uppercase tracking-widest">
+                Product Types
+              </p>
+              <BrandTagGroup brands={linkedProductTypes} />
             </div>
           )}
 
           <div>
             <SupplierSheet
               supplier={supplier}
+              brands={brands ?? []}
+              productTypes={productTypes ?? []}
               trigger={
                 <Button variant="outline" size="sm">
                   Edit Supplier

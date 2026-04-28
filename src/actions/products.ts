@@ -106,9 +106,15 @@ export async function updateProduct(
   } = await supabase.auth.getUser();
   if (!user) return { data: null, error: { message: "Unauthorized" } };
 
+  const updateValues: ProductUpdateValues = { notes: values.notes };
+  if ("brand_id" in values) updateValues.brand_id = values.brand_id ?? null;
+  if ("product_type_id" in values) {
+    updateValues.product_type_id = values.product_type_id ?? null;
+  }
+
   const { data, error } = await supabase
     .from("products")
-    .update({ notes: values.notes })
+    .update(updateValues)
     .eq("id", productId)
     .select()
     .single();

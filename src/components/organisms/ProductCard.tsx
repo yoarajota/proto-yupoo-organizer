@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Camera, AlertCircle } from "lucide-react";
+import { Camera } from "lucide-react";
 import { PhotoThumb } from "@/components/atoms/PhotoThumb";
 import type { Database } from "@/types/database";
 import { cn } from "@/lib/utils";
@@ -9,6 +9,8 @@ type PhotoHashRow = Database["public"]["Tables"]["photo_hashes"]["Row"];
 
 interface ProductCardProps {
   product: ProductRow & {
+    brands?: { name: string } | null;
+    product_types?: { name: string } | null;
     photo_hashes: (PhotoHashRow & {
       similarity_matches?: { is_dismissed: boolean }[];
     })[];
@@ -71,7 +73,9 @@ export function ProductCard({ product, className }: ProductCardProps) {
           
           <div className="flex items-center justify-between border-t border-foreground/5 pt-2">
             <span className="text-[10px] italic text-muted-foreground/70">
-              {formattedDate}
+              {[product.brands?.name, product.product_types?.name]
+                .filter(Boolean)
+                .join(" / ") || formattedDate}
             </span>
             <span className="text-[9px] font-medium text-muted-foreground/40 uppercase tracking-tighter">
               {product.photo_hashes.length} {product.photo_hashes.length === 1 ? "Image" : "Images"}

@@ -4,11 +4,15 @@ import { useState } from "react"
 import { SearchField } from "@/components/molecules/SearchField"
 import { BrandTagGroup } from "@/components/molecules/BrandTagGroup"
 import { SupplierRow } from "@/components/organisms/SupplierRow"
+import type { CatalogOption } from "@/lib/catalog"
+import { getSupplierBrandNames, type SupplierBrandLink, type SupplierProductTypeLink } from "@/lib/supplier-catalog"
 import type { Database } from "@/types/database"
 
 type SupplierRowType = Database["public"]["Tables"]["suppliers"]["Row"]
 
 export type SupplierWithStats = SupplierRowType & {
+  supplier_brands?: SupplierBrandLink[]
+  supplier_product_types?: SupplierProductTypeLink[]
   priceRange?: { min: number; max: number }
   activeInquiryCount: number
 }
@@ -16,10 +20,18 @@ export type SupplierWithStats = SupplierRowType & {
 interface SupplierDirectoryProps {
   suppliers: SupplierWithStats[]
   allBrands: string[]
+  brands?: CatalogOption[]
+  productTypes?: CatalogOption[]
   addSupplierTrigger?: React.ReactNode
 }
 
-export function SupplierDirectory({ suppliers, allBrands, addSupplierTrigger }: SupplierDirectoryProps) {
+export function SupplierDirectory({
+  suppliers,
+  allBrands,
+  brands = [],
+  productTypes = [],
+  addSupplierTrigger,
+}: SupplierDirectoryProps) {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedBrands, setSelectedBrands] = useState<string[]>([])
 
@@ -47,8 +59,9 @@ export function SupplierDirectory({ suppliers, allBrands, addSupplierTrigger }: 
 
   const filtered = suppliers.filter((s) => {
     const matchesName = s.name.toLowerCase().includes(searchTerm.toLowerCase())
+    const supplierBrands = getSupplierBrandNames(s)
     const matchesBrand =
-      selectedBrands.length === 0 || selectedBrands.some((b) => s.brands.includes(b))
+      selectedBrands.length === 0 || selectedBrands.some((b) => supplierBrands.includes(b))
     return matchesName && matchesBrand
   })
 
@@ -90,6 +103,8 @@ export function SupplierDirectory({ suppliers, allBrands, addSupplierTrigger }: 
             <SupplierRow
               key={supplier.id}
               supplier={supplier}
+              brands={brands}
+              productTypes={productTypes}
               priceRange={supplier.priceRange}
               activeInquiryCount={supplier.activeInquiryCount}
             />

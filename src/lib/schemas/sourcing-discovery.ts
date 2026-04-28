@@ -4,6 +4,8 @@ const DiscoveryCategorySchema = z.object({
   source_url: z.string().url(),
   category_path: z.array(z.string().trim().min(1)).min(1),
   raw_label: z.string().trim().min(1),
+  preview_image_urls: z.array(z.string().url()).default([]),
+  preview_image_status: z.enum(['fetched', 'discovered_only']).default('discovered_only'),
   extracted_at: z.string().datetime(),
   confidence: z.number().min(0).max(1),
 })

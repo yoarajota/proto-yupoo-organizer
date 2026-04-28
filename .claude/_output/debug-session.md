@@ -2,32 +2,32 @@
 
 ## Symptom
 
-Running scripts/create-admin-user.ts fails with Node ESM error: ERR_UNKNOWN_FILE_EXTENSION (.ts).
+Some Yupoo category preview images are not being captured by `extractCategoryPreviewImageUrls`, even though they appear in the category page HTML.
 
 ## Hypotheses
 
 | ID  | Hypothesis                             | Confidence | Status |
 | --- | -------------------------------------- | ---------- | ------ |
-| H-1 | TypeScript runner missing/ts-node error | medium     | active |
-| H-2 | Env vars missing in .env.local          | medium     | active |
-| H-3 | Supabase not running or URL mismatch    | low        | active |
+| H-1 | The extractor is scoped to the wrong container (`.categories__children` only) and some previews live elsewhere. | high | active |
+| H-2 | The extractor requires both `album__absolute` and `album__img` on the same `div`/`img`, but some pages split those classes across wrapper and child elements. | high | active |
+| H-3 | The extractor reads too few URL-bearing attributes (`src`, `data-src`, `data-original`, `data-image`, inline `style`) and misses other Yupoo variants. | medium | active |
 
 ## Investigation Log
 
-### [step-1] Reproduced failure with ts-node
+### [step-1] Read parser and tests for preview extraction
 
-- Action: Ran pnpm dlx ts-node --files scripts/create-admin-user.ts.
-- Result: TypeError ERR_UNKNOWN_FILE_EXTENSION for .ts.
+- Action: Inspected `src/lib/yupoo/scout.ts` and `src/lib/yupoo/scout.test.ts`.
+- Result: `extractCategoryPreviewImageUrls` only searches inside `div.categories__children`, only matches `<div>` and `<img>`, and only accepts elements that have both `album__absolute` and `album__img` on the same tag. Tests cover only that exact structure.
 - Eliminated: None.
-- Narrowed: Failure is in TypeScript runtime loader (ESM handling), before script logic runs.
+- Narrowed: Failures are most likely caused by real Yupoo markup diverging from the narrow test fixture shape.
 
 ## Current Focus
 
-Select a TS runner that supports ESM (tsx or ts-node/esm).
+Confirm which HTML pattern differs from the extractor assumptions: container, class placement, or image attribute.
 
 ## Binary Search Position
 
-Fails at TS runtime loader; not reaching script execution.
+Parser narrowed to one function; current boundary is between the tested synthetic HTML shape and the real Yupoo page shape.
 
 ## Confirmed Root Cause
 

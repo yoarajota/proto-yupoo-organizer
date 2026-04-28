@@ -6,6 +6,7 @@ import {
   MessageSquare,
   Package,
   Store,
+  Tags,
   Target,
   type LucideIcon,
 } from "lucide-react";
@@ -28,6 +29,9 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { MissionSheet } from "@/components/organisms/MissionSheet";
 import { MissionsTable, type MissionRowType } from "@/components/organisms/MissionsTable";
+import { CatalogManager } from "@/components/organisms/CatalogManager";
+import type { CatalogOption } from "@/lib/catalog";
+import { getSupplierBrandNames } from "@/lib/supplier-catalog";
 
 type ProductRow = Database["public"]["Tables"]["products"]["Row"];
 type PhotoHashRow = Database["public"]["Tables"]["photo_hashes"]["Row"];
@@ -38,7 +42,7 @@ type ProductForCard = ProductRow & {
   })[];
 };
 
-type SectionId = "missions" | "inquiries" | "suppliers" | "products" | "sources";
+type SectionId = "missions" | "catalog" | "inquiries" | "suppliers" | "products" | "sources";
 
 interface UnifiedWorkspaceProps {
   missions: MissionRowType[];
@@ -46,6 +50,8 @@ interface UnifiedWorkspaceProps {
   suppliers: SupplierWithStats[];
   products: ProductForCard[];
   sources: SourceWithProfile[];
+  brands: CatalogOption[];
+  productTypes: CatalogOption[];
 }
 
 const sectionMeta: Record<
@@ -60,6 +66,11 @@ const sectionMeta: Record<
     label: "Missions",
     caption: "Autonomous sourcing agents.",
     icon: Target,
+  },
+  catalog: {
+    label: "Catalog",
+    caption: "Brands and product type registry.",
+    icon: Tags,
   },
   inquiries: {
     label: "Inquiries",
@@ -89,6 +100,8 @@ export function UnifiedWorkspace({
   suppliers,
   products,
   sources,
+  brands,
+  productTypes,
 }: UnifiedWorkspaceProps) {
   const [activeSection, setActiveSection] = useState<SectionId>("missions");
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
@@ -107,7 +120,7 @@ export function UnifiedWorkspace({
   const allSupplierBrands = useMemo(
     () =>
       Array.from(
-        new Set(suppliers.flatMap((supplier) => supplier.brands)),
+        new Set(suppliers.flatMap((supplier) => getSupplierBrandNames(supplier))),
       ).sort(),
     [suppliers],
   );
@@ -129,6 +142,7 @@ export function UnifiedWorkspace({
 
   const sectionCounts: Record<SectionId, number> = {
     missions: missions.length,
+    catalog: brands.length + productTypes.length,
     inquiries: inquiries.length,
     suppliers: suppliers.length,
     products: products.length,
@@ -162,7 +176,7 @@ export function UnifiedWorkspace({
             Board
           </h1>
 
-          <div className="grid grid-cols-2 gap-3 pt-1 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 pt-1 sm:grid-cols-3 xl:grid-cols-6">
             {(Object.keys(sectionMeta) as SectionId[]).map((sectionId) => {
               const section = sectionMeta[sectionId];
               const Icon = section.icon;
@@ -262,6 +276,18 @@ export function UnifiedWorkspace({
           </div>
         )}
 
+        {activeSection === "catalog" && (
+          <div className="space-y-4 border border-border/60 bg-background p-4 sm:p-5">
+            <div className="border-b border-border/50 pb-4">
+              <p className="text-xs uppercase tracking-widest text-muted-foreground/70">
+                Register reusable values for products and suppliers
+              </p>
+            </div>
+
+            <CatalogManager brands={brands} productTypes={productTypes} />
+          </div>
+        )}
+
         {activeSection === "suppliers" && (
           <div className="space-y-4 border border-border/60 bg-background p-4 sm:p-5">
             <div className="flex flex-col gap-3 border-b border-border/50 pb-4 sm:flex-row sm:items-center sm:justify-between">
@@ -269,6 +295,8 @@ export function UnifiedWorkspace({
                 Register and filter suppliers
               </p>
               <SupplierSheet
+                brands={brands}
+                productTypes={productTypes}
                 trigger={
                   <Button className="h-9 rounded-none px-4 text-[10px] uppercase tracking-widest">
                     Add Supplier
@@ -280,6 +308,8 @@ export function UnifiedWorkspace({
             <SupplierDirectory
               suppliers={suppliers}
               allBrands={allSupplierBrands}
+              brands={brands}
+              productTypes={productTypes}
             />
           </div>
         )}

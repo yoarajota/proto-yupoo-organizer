@@ -15,7 +15,6 @@ const baseSupplier = {
   name: "Nike Factory",
   yupoo_url: "https://nike.yupoo.com",
   whatsapp_contact: "+5511999999999",
-  brands: ["Nike"],
   trust_notes: "Reliable",
   is_flagged: false,
   red_flag_source: null,

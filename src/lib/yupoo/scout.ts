@@ -1,10 +1,22 @@
+import { createHash } from 'node:crypto'
 import { DiscoveryBatchSchema, type DiscoveryBatchValues } from '@/lib/schemas/sourcing-discovery'
 
 const HREF_REGEX = /href\s*=\s*["']([^"']+)["']/gi
 const ANCHOR_REGEX = /<a\b([^>]*)>([\s\S]*?)<\/a>/gi
 const IGNORED_SUBDOMAINS = new Set(['www', 'm'])
-const CATEGORY_BOX_CLASS = 'categories__box-left'
 const SHOP_DISCOVERY_PATHS = ['/albums', '/albums?tab=gallery', '/contact', '/categories']
+const PRIMARY_DISCOVERY_PATH = '/categories'
+const MAX_DISCOVERY_DEPTH = 2
+const MAX_CATEGORY_PREVIEW_IMAGES = 4
+const DEFAULT_MAX_DISCOVERY_REQUESTS = 24
+const DEFAULT_FETCH_TIMEOUT_MS = 15_000
+const GENERIC_PATH_REF_SEGMENTS = new Set(['albums', 'categories', 'contact'])
+const YUPOO_FETCH_HEADERS = {
+  accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+  'accept-language': 'en-US,en;q=0.9',
+  'user-agent':
+    'Mozilla/5.0 (compatible; YupooOrganizer/1.0; +https://localhost)',
+} as const
 const LEET_CHAR_MAP: Record<string, string> = {
   '!': 'i',
   '$': 's',
@@ -19,6 +31,45 @@ const LEET_CHAR_MAP: Record<string, string> = {
   '9': 'g',
   '@': 'a',
 }
+
+type FetchLike = typeof fetch
+
+export type YupooScrapePageArtifact = {
+  url: string
+  status: 'fetched' | 'failed'
+  http_status: number | null
+  content_hash: string | null
+  fetched_at: string
+  discovered_urls: string[]
+  categories_count: number
+  suppliers_count: number
+  error: string | null
+  preview_debug: {
+    page_is_concrete_category: boolean
+    extracted_preview_urls: string[]
+    matched_candidates: Array<{
+      data_type: string | null
+      raw_url: string | null
+      absolute_url: string | null
+      accepted: boolean
+      reason: string
+    }>
+  } | null
+}
+
+export type YupooDiscoveryResult = DiscoveryBatchValues & {
+  pages: YupooScrapePageArtifact[]
+}
+
+type PreviewDebugArtifact = NonNullable<YupooScrapePageArtifact['preview_debug']>
+
+type QueuedDiscoveryRequest = {
+  url: string
+  depth: number
+  sequence: number
+}
+
+type CategoryPreviewImageStatus = DiscoveryBatchValues['categories'][number]['preview_image_status']
 
 function parseHrefUrls(html: string, baseUrl: string) {
   const links: string[] = []
@@ -37,9 +88,25 @@ function parseHrefUrls(html: string, baseUrl: string) {
   return links
 }
 
+function hashHtml(html: string) {
+  return createHash('sha256').update(html).digest('hex')
+}
+
 function extractAttribute(tagAttributes: string, attributeName: string) {
-  const regex = new RegExp(`${attributeName}\\s*=\\s*["']([^"']+)["']`, 'i')
-  return tagAttributes.match(regex)?.[1] ?? null
+  const doubleQuoted = tagAttributes.match(new RegExp(`${attributeName}\\s*=\\s*"([^"]*)"`, 'i'))
+  if (doubleQuoted?.[1] != null) return doubleQuoted[1]
+
+  const singleQuoted = tagAttributes.match(new RegExp(`${attributeName}\\s*=\\s*'([^']*)'`, 'i'))
+  return singleQuoted?.[1] ?? null
+}
+
+function extractClassNames(tagAttributes: string) {
+  return new Set(
+    (extractAttribute(tagAttributes, 'class') ?? '')
+      .split(/\s+/)
+      .map((className) => className.trim())
+      .filter(Boolean),
+  )
 }
 
 function decodeHtmlEntities(input: string) {
@@ -65,8 +132,21 @@ function toCategoryPath(url: URL) {
     .filter(Boolean)
 }
 
-function isCategoryUrl(url: URL) {
-  return toCategoryPath(url).includes('categories')
+function isConcreteCategoryUrl(url: URL) {
+  const categoryPath = toCategoryPath(url)
+  const categoriesIndex = categoryPath.indexOf('categories')
+  return categoriesIndex >= 0 && categoryPath.length > categoriesIndex + 1
+}
+
+function isSeedDiscoveryPath(url: URL) {
+  return SHOP_DISCOVERY_PATHS.some((path) => {
+    const candidate = new URL(path, url.origin)
+    return candidate.pathname === url.pathname && candidate.search === url.search
+  })
+}
+
+function isDiscoveryCandidateUrl(url: URL) {
+  return isConcreteCategoryUrl(url) || isSeedDiscoveryPath(url)
 }
 
 function toSupplierKey(url: URL) {
@@ -91,6 +171,11 @@ function normalizeTextForRefs(input: string) {
     .join('')
 }
 
+function isGenericCategoryLabel(label: string) {
+  const normalized = normalizeTextForRefs(label).replace(/[^a-z0-9]+/g, '')
+  return normalized === 'allcategories' || normalized === 'categories'
+}
+
 function toCategoryRefs(label: string, fallbackPath: string[] = []) {
   const normalized = normalizeTextForRefs(label)
   const baseTokens = normalized
@@ -100,7 +185,16 @@ function toCategoryRefs(label: string, fallbackPath: string[] = []) {
     .split(/\s+/)
     .filter(Boolean)
   const pathTokens = fallbackPath
-    .map((segment) => normalizeTextForRefs(segment))
+    .map((segment) =>
+      Array.from(
+        segment
+          .normalize('NFKD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase(),
+      ).join(''),
+    )
+    .filter((segment) => !GENERIC_PATH_REF_SEGMENTS.has(segment))
+    .filter((segment) => /[a-z]/.test(segment))
     .flatMap((segment) => segment.split(/[^a-z0-9]+/))
     .filter(Boolean)
 
@@ -127,66 +221,220 @@ function toCategoryRefs(label: string, fallbackPath: string[] = []) {
   return Array.from(refs)
 }
 
-function extractDivWithClass(html: string, className: string) {
-  const classRegex = new RegExp(
-    `<div\\b[^>]*class=["'][^"']*\\b${className}\\b[^"']*["'][^>]*>`,
-    'i',
-  )
-  const match = classRegex.exec(html)
-  if (!match || typeof match.index !== 'number') return null
-
-  const tagRegex = /<div\b[^>]*>|<\/div>/gi
-  tagRegex.lastIndex = match.index + match[0].length
-  let depth = 1
-
-  for (const tagMatch of html.slice(match.index + match[0].length).matchAll(tagRegex)) {
-    const fullMatch = tagMatch[0]
-    if (fullMatch.startsWith('</div')) {
-      depth -= 1
-    } else {
-      depth += 1
-    }
-
-    if (depth === 0 && typeof tagMatch.index === 'number') {
-      const start = match.index + match[0].length
-      const end = start + tagMatch.index
-      return html.slice(start, end)
-    }
-  }
-
-  return null
-}
-
 function extractCategoryEntries(html: string, baseUrl: string) {
-  const categorySection = extractDivWithClass(html, CATEGORY_BOX_CLASS)
-  const source = categorySection ?? html
   const entries: Array<{ href: string | null; label: string }> = []
 
-  for (const match of source.matchAll(ANCHOR_REGEX)) {
+  for (const match of html.matchAll(ANCHOR_REGEX)) {
     const attributes = match[1] ?? ''
-    const label = stripTags(match[2] ?? '')
+    const titleLabel = stripTags(extractAttribute(attributes, 'title') ?? '')
+    const visibleLabel = stripTags(match[2] ?? '')
+    const label = titleLabel || visibleLabel
     if (!label) continue
 
-    const href = extractAttribute(attributes, 'href')
-    if (!categorySection) {
-      if (!href) continue
-      try {
-        const url = new URL(href, baseUrl)
-        if (!isCategoryUrl(url)) continue
-      } catch {
-        continue
-      }
-    }
-
-    entries.push({ href, label })
+    entries.push({ href: extractAttribute(attributes, 'href'), label })
   }
 
-  return entries
+  const filteredEntries: Array<{ href: string | null; label: string }> = []
+
+  for (const entry of entries) {
+    if (isGenericCategoryLabel(entry.label)) continue
+    if (!entry.href) continue
+
+    try {
+      const url = new URL(entry.href, baseUrl)
+      if (!isConcreteCategoryUrl(url)) continue
+    } catch {
+      continue
+    }
+
+    filteredEntries.push(entry)
+  }
+
+  return filteredEntries
+}
+
+function extractDivContentsByClass(html: string, targetClassName: string) {
+  const contents: string[] = []
+  const divTagRegex = /<\/?div\b[^>]*>/gi
+  const stack: Array<{ classNames: Set<string>; contentStart: number }> = []
+
+  for (const match of html.matchAll(divTagRegex)) {
+    const tag = match[0]
+    const startIndex = match.index ?? 0
+
+    if (tag.startsWith('</')) {
+      const openDiv = stack.pop()
+      if (openDiv?.classNames.has(targetClassName)) {
+        contents.push(html.slice(openDiv.contentStart, startIndex))
+      }
+      continue
+    }
+
+    stack.push({
+      classNames: extractClassNames(tag),
+      contentStart: startIndex + tag.length,
+    })
+  }
+
+  return contents
+}
+
+function extractImageCandidateUrl(tagAttributes: string) {
+  const directSrc =
+    extractAttribute(tagAttributes, 'src') ??
+    extractAttribute(tagAttributes, 'data-src') ??
+    extractAttribute(tagAttributes, 'data-original') ??
+    extractAttribute(tagAttributes, 'data-image')
+  if (directSrc) return directSrc
+
+  const style = extractAttribute(tagAttributes, 'style') ?? ''
+  const styleUrl = style.match(/url\((['"]?)([^'")]+)\1\)/i)?.[2]
+  return styleUrl ?? null
+}
+
+function collectCategoryPreviewDebug(html: string, baseUrl: string) {
+  const previewUrls: string[] = []
+  const seenUrls = new Set<string>()
+  const matchedCandidates: PreviewDebugArtifact['matched_candidates'] = []
+  const previewTagRegex = /<(?:div|img)\b([^>]*)>/gi
+
+  for (const block of extractDivContentsByClass(html, 'categories__children')) {
+    for (const match of block.matchAll(previewTagRegex)) {
+      const attributes = match[1] ?? ''
+      const classNames = extractClassNames(attributes)
+      const isAlbumPreview = classNames.has('album__absolute') && classNames.has('album__img')
+      const dataType = extractAttribute(attributes, 'data-type')
+      const isPhotoPreview = dataType === 'photo'
+      if (!isAlbumPreview && !isPhotoPreview) continue
+
+      const rawUrl = extractImageCandidateUrl(attributes)
+      if (!rawUrl) {
+        matchedCandidates.push({
+          data_type: dataType,
+          raw_url: null,
+          absolute_url: null,
+          accepted: false,
+          reason: 'missing_image_url',
+        })
+        continue
+      }
+
+      try {
+        const absoluteUrl = new URL(rawUrl, baseUrl).toString()
+        if (seenUrls.has(absoluteUrl)) {
+          matchedCandidates.push({
+            data_type: dataType,
+            raw_url: rawUrl,
+            absolute_url: absoluteUrl,
+            accepted: false,
+            reason: 'duplicate',
+          })
+          continue
+        }
+        seenUrls.add(absoluteUrl)
+        previewUrls.push(absoluteUrl)
+        matchedCandidates.push({
+          data_type: dataType,
+          raw_url: rawUrl,
+          absolute_url: absoluteUrl,
+          accepted: true,
+          reason: isPhotoPreview ? 'data_type_photo' : 'album_preview_class',
+        })
+      } catch {
+        matchedCandidates.push({
+          data_type: dataType,
+          raw_url: rawUrl,
+          absolute_url: null,
+          accepted: false,
+          reason: 'invalid_url',
+        })
+        continue
+      }
+
+      if (previewUrls.length >= MAX_CATEGORY_PREVIEW_IMAGES) {
+        return { previewUrls, matchedCandidates }
+      }
+    }
+  }
+
+  return { previewUrls, matchedCandidates }
+}
+
+function extractCategoryPreviewImageUrls(html: string, baseUrl: string) {
+  return collectCategoryPreviewDebug(html, baseUrl).previewUrls
 }
 
 function buildShopDiscoveryUrls(seedUrl: string) {
   const seed = new URL(seedUrl)
-  return SHOP_DISCOVERY_PATHS.map((path) => new URL(path, seed.origin).toString())
+  const urls = new Set<string>()
+  for (const candidate of [new URL(PRIMARY_DISCOVERY_PATH, seed.origin).toString()]) {
+    const normalized = normalizeDiscoveryUrl(candidate, seed.origin)
+    if (normalized) urls.add(normalized)
+  }
+
+  return Array.from(urls).sort((left, right) => {
+    const leftUrl = new URL(left)
+    const rightUrl = new URL(right)
+    const primarySeedUrl = new URL(PRIMARY_DISCOVERY_PATH, seed.origin).toString()
+    if (left === primarySeedUrl && right !== primarySeedUrl) return -1
+    if (right === primarySeedUrl && left !== primarySeedUrl) return 1
+
+    if (isConcreteCategoryUrl(leftUrl) !== isConcreteCategoryUrl(rightUrl)) {
+      return isConcreteCategoryUrl(leftUrl) ? -1 : 1
+    }
+
+    return left.localeCompare(right)
+  })
+}
+
+function buildFallbackDiscoveryUrls(seedUrl: string, currentUrl: string) {
+  const seed = new URL(seedUrl)
+  const current = new URL(currentUrl)
+
+  return SHOP_DISCOVERY_PATHS
+    .filter((path) => path !== PRIMARY_DISCOVERY_PATH)
+    .map((path) => normalizeDiscoveryUrl(new URL(path, seed.origin).toString(), seed.origin))
+    .filter((url): url is string => Boolean(url) && url !== current.toString())
+}
+
+function buildNextDiscoveryUrls(html: string, pageUrl: string, shopOrigin: string) {
+  return Array.from(
+    new Set(
+      parseHrefUrls(html, pageUrl)
+        .map((href) => normalizeDiscoveryUrl(href, shopOrigin))
+        .filter((url): url is string => Boolean(url) && url !== pageUrl),
+    ),
+  ).sort((left, right) => {
+    const leftIsConcrete = isConcreteCategoryUrl(new URL(left))
+    const rightIsConcrete = isConcreteCategoryUrl(new URL(right))
+    if (leftIsConcrete !== rightIsConcrete) return leftIsConcrete ? -1 : 1
+    return left.localeCompare(right)
+  })
+}
+
+function normalizeDiscoveryUrl(rawUrl: string, shopOrigin: string) {
+  try {
+    const url = new URL(rawUrl, shopOrigin)
+    if (url.origin !== shopOrigin) return null
+    if (!isDiscoveryCandidateUrl(url)) return null
+
+    url.hash = ''
+
+    if (isConcreteCategoryUrl(url)) {
+      url.search = ''
+      return url.toString()
+    }
+
+    if (url.pathname === '/albums' && url.searchParams.get('tab') === 'gallery') {
+      url.search = '?tab=gallery'
+      return url.toString()
+    }
+
+    url.search = ''
+    return url.toString()
+  } catch {
+    return null
+  }
 }
 
 function mergeSupplierRecord(
@@ -206,11 +454,43 @@ function mergeSupplierRecord(
   }
 }
 
+function mergeCategoryRecord(
+  existing: DiscoveryBatchValues['categories'][number] | undefined,
+  next: DiscoveryBatchValues['categories'][number],
+) {
+  if (!existing) return next
+
+  const previewImageStatus: CategoryPreviewImageStatus =
+    existing.preview_image_status === 'fetched' || next.preview_image_status === 'fetched'
+      ? 'fetched'
+      : 'discovered_only'
+
+  return {
+    ...existing,
+    ...next,
+    raw_label: existing.raw_label || next.raw_label,
+    confidence: Math.max(existing.confidence, next.confidence),
+    preview_image_status: previewImageStatus,
+    preview_image_urls:
+      previewImageStatus === 'fetched'
+        ? next.preview_image_status === 'fetched'
+          ? next.preview_image_urls
+          : existing.preview_image_urls
+        : next.preview_image_urls.length > 0
+          ? next.preview_image_urls
+          : existing.preview_image_urls,
+  }
+}
+
 export function extractDiscoveryFromHtml(html: string, baseUrl: string, extractedAt: string): DiscoveryBatchValues {
   const categories = new Map<string, DiscoveryBatchValues['categories'][number]>()
   const suppliers = new Map<string, DiscoveryBatchValues['suppliers'][number]>()
   const pageUrl = new URL(baseUrl)
   const shopSupplierKey = toSupplierKey(pageUrl)
+  const pagePreviewDebug = isConcreteCategoryUrl(pageUrl)
+    ? collectCategoryPreviewDebug(html, pageUrl.toString())
+    : null
+  const pagePreviewImageUrls = pagePreviewDebug?.previewUrls ?? []
 
   for (const entry of extractCategoryEntries(html, baseUrl)) {
     let categoryUrl: URL | null = null
@@ -228,13 +508,18 @@ export function extractDiscoveryFromHtml(html: string, baseUrl: string, extracte
 
     const sourceUrl = categoryUrl?.toString() ?? pageUrl.toString()
     const categoryKey = `${sourceUrl}::${categoryPath.join('/')}`
-    categories.set(categoryKey, {
-      source_url: sourceUrl,
-      category_path: categoryPath,
-      raw_label: entry.label,
-      extracted_at: extractedAt,
-      confidence: categoryUrl ? 0.9 : 0.75,
-    })
+    categories.set(
+      categoryKey,
+      mergeCategoryRecord(categories.get(categoryKey), {
+        source_url: sourceUrl,
+        category_path: categoryPath,
+        raw_label: entry.label,
+        preview_image_urls: sourceUrl === pageUrl.toString() ? pagePreviewImageUrls : [],
+        preview_image_status: sourceUrl === pageUrl.toString() ? 'fetched' : 'discovered_only',
+        extracted_at: extractedAt,
+        confidence: sourceUrl === pageUrl.toString() ? 0.9 : categoryUrl ? 0.7 : 0.75,
+      }),
+    )
 
     if (shopSupplierKey) {
       const supplierId = `${shopSupplierKey}::${pageUrl.origin}`
@@ -269,17 +554,41 @@ export function extractDiscoveryFromHtml(html: string, baseUrl: string, extracte
     for (const rawUrl of parseHrefUrls(html, baseUrl)) {
       const url = new URL(rawUrl)
       const categoryPath = toCategoryPath(url)
-      if (categoryPath.length === 0 || !isCategoryUrl(url)) continue
+      if (categoryPath.length === 0 || !isConcreteCategoryUrl(url)) continue
+      const fallbackLabel = categoryPath.at(-1) ?? url.toString()
+      if (isGenericCategoryLabel(fallbackLabel)) continue
 
       const categoryKey = `${url.toString()}::${categoryPath.join('/')}`
-      categories.set(categoryKey, {
-        source_url: url.toString(),
-        category_path: categoryPath,
-        raw_label: categoryPath.at(-1) ?? url.toString(),
-        extracted_at: extractedAt,
-        confidence: 0.6,
-      })
+      categories.set(
+        categoryKey,
+        mergeCategoryRecord(categories.get(categoryKey), {
+          source_url: url.toString(),
+          category_path: categoryPath,
+          raw_label: fallbackLabel,
+          preview_image_urls: url.toString() === pageUrl.toString() ? pagePreviewImageUrls : [],
+          preview_image_status: url.toString() === pageUrl.toString() ? 'fetched' : 'discovered_only',
+          extracted_at: extractedAt,
+          confidence: url.toString() === pageUrl.toString() ? 0.9 : 0.6,
+        }),
+      )
     }
+  }
+
+  if (isConcreteCategoryUrl(pageUrl)) {
+    const pageCategoryPath = toCategoryPath(pageUrl)
+    const pageCategoryKey = `${pageUrl.toString()}::${pageCategoryPath.join('/')}`
+    categories.set(
+      pageCategoryKey,
+      mergeCategoryRecord(categories.get(pageCategoryKey), {
+        source_url: pageUrl.toString(),
+        category_path: pageCategoryPath,
+        raw_label: categories.get(pageCategoryKey)?.raw_label ?? (pageCategoryPath.at(-1) || pageUrl.toString()),
+        preview_image_urls: pagePreviewImageUrls,
+        preview_image_status: 'fetched',
+        extracted_at: extractedAt,
+        confidence: 0.9,
+      }),
+    )
   }
 
   return DiscoveryBatchSchema.parse({
@@ -288,41 +597,154 @@ export function extractDiscoveryFromHtml(html: string, baseUrl: string, extracte
   })
 }
 
-export async function crawlYupooDiscovery(seedUrl: string, maxRequests = 8): Promise<DiscoveryBatchValues> {
-  const { CheerioCrawler, RequestQueue } = await import('crawlee')
-  const requestQueue = await RequestQueue.open()
-  const discoveryUrls = buildShopDiscoveryUrls(seedUrl).slice(0, Math.max(1, maxRequests))
-  for (const url of discoveryUrls) {
-    await requestQueue.addRequest({ url, uniqueKey: url })
+async function fetchYupooHtml(url: string, fetchImpl: FetchLike) {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), DEFAULT_FETCH_TIMEOUT_MS)
+
+  try {
+    const response = await fetchImpl(url, {
+      cache: 'no-store',
+      headers: YUPOO_FETCH_HEADERS,
+      redirect: 'follow',
+      signal: controller.signal,
+    })
+    const html = await response.text()
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`)
+    }
+
+    return {
+      html,
+      httpStatus: response.status,
+      loadedUrl: response.url || url,
+    }
+  } finally {
+    clearTimeout(timeout)
   }
+}
+
+export async function scrapeYupooDiscovery(
+  seedUrl: string,
+  maxRequests = DEFAULT_MAX_DISCOVERY_REQUESTS,
+  fetchImpl: FetchLike = fetch,
+): Promise<YupooDiscoveryResult> {
+  const shopOrigin = new URL(seedUrl).origin
+  const requestLimit = Math.max(1, maxRequests)
+  const queuedKeys = new Set<string>()
+  const queue: QueuedDiscoveryRequest[] = []
+  let sequence = 0
+
+  const getQueuePriority = (url: string) => {
+    const parsed = new URL(url)
+    if (parsed.pathname === PRIMARY_DISCOVERY_PATH && parsed.search === '') return 0
+    if (isConcreteCategoryUrl(parsed)) return 1
+    return 2
+  }
+
+  const enqueue = (url: string, depth: number) => {
+    if (queuedKeys.has(url)) return
+    queuedKeys.add(url)
+    queue.push({ url, depth, sequence: sequence++ })
+    queue.sort((left, right) => {
+      const priorityDelta = getQueuePriority(left.url) - getQueuePriority(right.url)
+      if (priorityDelta !== 0) return priorityDelta
+      if (left.depth !== right.depth) return left.depth - right.depth
+      return left.sequence - right.sequence
+    })
+  }
+
+  buildShopDiscoveryUrls(seedUrl)
+    .slice(0, requestLimit)
+    .forEach((url) => enqueue(url, 0))
 
   const categoryAccumulator = new Map<string, DiscoveryBatchValues['categories'][number]>()
   const supplierAccumulator = new Map<string, DiscoveryBatchValues['suppliers'][number]>()
+  const pages: YupooScrapePageArtifact[] = []
 
-  const crawler = new CheerioCrawler({
-    requestQueue,
-    maxRequestsPerCrawl: maxRequests,
-    async requestHandler({ $, request }) {
-      const extractedAt = new Date().toISOString()
-      const html = $.html()
-      const discovered = extractDiscoveryFromHtml(html, request.loadedUrl ?? request.url, extractedAt)
+  while (queue.length > 0 && pages.length < requestLimit) {
+    const request = queue.shift()
+    if (!request) continue
+
+    const fetchedAt = new Date().toISOString()
+
+    try {
+      const { html, httpStatus, loadedUrl } = await fetchYupooHtml(request.url, fetchImpl)
+      const pageUrl = normalizeDiscoveryUrl(loadedUrl, shopOrigin) ?? request.url
+      const discovered = extractDiscoveryFromHtml(html, pageUrl, fetchedAt)
+      const discoveredUrls = buildNextDiscoveryUrls(html, pageUrl, shopOrigin)
+      const previewDebug: PreviewDebugArtifact = isConcreteCategoryUrl(new URL(pageUrl))
+        ? (() => {
+            const collected = collectCategoryPreviewDebug(html, pageUrl)
+            return {
+              page_is_concrete_category: true,
+              extracted_preview_urls: collected.previewUrls,
+              matched_candidates: collected.matchedCandidates,
+            }
+          })()
+        : {
+            page_is_concrete_category: false,
+            extracted_preview_urls: [],
+            matched_candidates: [],
+          }
 
       discovered.categories.forEach((category) => {
         const key = `${category.source_url}::${category.category_path.join('/')}`
-        categoryAccumulator.set(key, category)
+        categoryAccumulator.set(key, mergeCategoryRecord(categoryAccumulator.get(key), category))
       })
 
       discovered.suppliers.forEach((supplier) => {
         const key = `${supplier.supplier_key}::${supplier.source_url}`
         supplierAccumulator.set(key, mergeSupplierRecord(supplierAccumulator.get(key), supplier))
       })
-    },
-  })
 
-  await crawler.run()
+      pages.push({
+        url: pageUrl,
+        status: 'fetched',
+        http_status: httpStatus,
+        content_hash: hashHtml(html),
+        fetched_at: fetchedAt,
+        discovered_urls: discoveredUrls,
+        categories_count: discovered.categories.length,
+        suppliers_count: discovered.suppliers.length,
+        error: null,
+        preview_debug: previewDebug,
+      })
 
-  return DiscoveryBatchSchema.parse({
+      if (request.depth >= MAX_DISCOVERY_DEPTH) continue
+
+      if (
+        request.depth === 0 &&
+        new URL(pageUrl).pathname === PRIMARY_DISCOVERY_PATH &&
+        discovered.categories.length === 0
+      ) {
+        buildFallbackDiscoveryUrls(seedUrl, pageUrl).forEach((url) => enqueue(url, request.depth + 1))
+      }
+
+      discoveredUrls.forEach((url) => enqueue(url, request.depth + 1))
+    } catch (error) {
+      pages.push({
+        url: request.url,
+        status: 'failed',
+        http_status: null,
+        content_hash: null,
+        fetched_at: fetchedAt,
+        discovered_urls: [],
+        categories_count: 0,
+        suppliers_count: 0,
+        error: error instanceof Error ? error.message : 'Failed to fetch Yupoo HTML.',
+        preview_debug: null,
+      })
+    }
+  }
+
+  const parsed = DiscoveryBatchSchema.parse({
     categories: Array.from(categoryAccumulator.values()),
     suppliers: Array.from(supplierAccumulator.values()),
   })
+
+  return {
+    ...parsed,
+    pages,
+  }
 }

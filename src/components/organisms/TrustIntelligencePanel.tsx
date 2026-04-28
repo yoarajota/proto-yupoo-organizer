@@ -29,7 +29,6 @@ export function TrustIntelligencePanel({ supplier }: TrustIntelligencePanelProps
       name: supplier.name,
       yupoo_url: supplier.yupoo_url,
       whatsapp_contact: supplier.whatsapp_contact,
-      brands: supplier.brands ?? [],
       is_flagged: overrides.isFlagged ?? isFlagged,
       red_flag_source: (overrides.redFlagSource ?? redFlagSource) || undefined,
       trust_notes: (overrides.trustNotes ?? trustNotes) || undefined,
