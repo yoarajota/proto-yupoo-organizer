@@ -16,6 +16,8 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { CatalogAutocomplete } from "@/components/molecules/CatalogAutocomplete";
+import type { BrandCatalogOption, CatalogOption } from "@/lib/catalog";
 import { Target, Bot, CheckCircle, Clock, ExternalLink, Link2, AlertCircle, ChevronRight, ChevronDown, X } from "lucide-react";
 import { runMissionDiscovery } from "@/actions/sourcing-discovery";
 import {
@@ -32,6 +34,8 @@ export type {
 
 interface MissionsTableProps {
   missions: MissionRowType[];
+  brands?: BrandCatalogOption[];
+  productTypes?: CatalogOption[];
 }
 
 function getRelativeTime(dateStr: string) {
@@ -234,6 +238,7 @@ function MissionSourceLinks({ seedUrl }: { seedUrl: string }) {
 
   return (
     <div className="space-y-2 mt-4">
+      <p className="text-xs font-medium text-muted-foreground">Source Links</p>
       <div className="flex items-center gap-1.5">
         <Link2 className="h-3.5 w-3.5 text-muted-foreground" />
         <span className="text-xs font-medium text-foreground">
@@ -247,6 +252,7 @@ function MissionSourceLinks({ seedUrl }: { seedUrl: string }) {
             href={link.href}
             target="_blank"
             rel="noreferrer"
+            aria-label={link.label === "Seed" ? "Seed URL" : link.label}
             className="inline-flex items-center gap-1 rounded-md bg-secondary/60 px-2 py-1 text-xs font-medium text-secondary-foreground hover:bg-secondary transition-colors"
           >
             {link.label}
@@ -278,7 +284,7 @@ function CategoryPreviewPanel({
       <div className="flex items-center justify-between">
         <p className="text-xs font-medium text-muted-foreground">Previews</p>
         <p className="text-xs text-muted-foreground">
-          {selectedPreviewIndex + 1} of {item.preview_image_urls.length}
+          {selectedPreviewIndex + 1} / {item.preview_image_urls.length}
         </p>
       </div>
       {selectedPreviewUrl && (
@@ -286,6 +292,7 @@ function CategoryPreviewPanel({
           type="button"
           className="group block w-full overflow-hidden rounded-md border bg-muted"
           onClick={onOpenLightbox}
+          aria-label={`Open full preview for ${item.raw_label}`}
         >
           <img
             src={selectedPreviewUrl}
@@ -300,6 +307,7 @@ function CategoryPreviewPanel({
             key={`${item.id}-${index}`}
             type="button"
             onClick={() => onSelectPreview(index)}
+            aria-label={`Select preview ${index + 1}`}
             className={`shrink-0 overflow-hidden rounded-md border-2 transition-all ${
               index === selectedPreviewIndex
                 ? "border-primary"
@@ -380,12 +388,29 @@ function CategoryReviewInput({
   placeholder,
   value,
   onChange,
+  options,
 }: {
   label: string;
   placeholder: string;
   value: string;
   onChange: (value: string) => void;
+  options: CatalogOption[];
 }) {
+  if (options.length > 0) {
+    return (
+      <CatalogAutocomplete
+        label={label}
+        options={options}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        emptyMessage={`No ${label.toLowerCase()} entries registered.`}
+        getOptionValue={(option) => option.slug ?? option.id}
+        allowCustomValue
+      />
+    );
+  }
+
   return (
     <div className="space-y-1.5">
       <label className="text-xs font-medium text-muted-foreground">
@@ -473,6 +498,7 @@ function CategoryPreviewLightbox({
               <button
                 type="button"
                 onClick={onPrevious}
+                aria-label="Previous preview"
                 className="text-white hover:text-white/70 transition-colors p-1"
               >
                 ←
@@ -483,6 +509,7 @@ function CategoryPreviewLightbox({
               <button
                 type="button"
                 onClick={onNext}
+                aria-label="Next preview"
                 className="text-white hover:text-white/70 transition-colors p-1"
               >
                 →
@@ -500,7 +527,15 @@ function CategoryPreviewLightbox({
   );
 }
 
-function CategoryReviewCard({ item }: { item: MissionCategoryReviewItem }) {
+function CategoryReviewCard({
+  item,
+  brands,
+  productTypes,
+}: {
+  item: MissionCategoryReviewItem;
+  brands: BrandCatalogOption[];
+  productTypes: CatalogOption[];
+}) {
   const [draftBrand, setDraftBrand] = useState(item.brand_signal ?? "");
   const [draftProduct, setDraftProduct] = useState(item.product_signal ?? "");
   const [selectedPreviewIndex, setSelectedPreviewIndex] = useState(0);
@@ -551,12 +586,14 @@ function CategoryReviewCard({ item }: { item: MissionCategoryReviewItem }) {
             placeholder="e.g. lv"
             value={draftBrand}
             onChange={setDraftBrand}
+            options={brands}
           />
           <CategoryReviewInput
             label="Product"
             placeholder="e.g. bags"
             value={draftProduct}
             onChange={setDraftProduct}
+            options={productTypes}
           />
         </div>
         <div className="flex justify-end pt-2 border-t mt-4">
@@ -578,7 +615,15 @@ function CategoryReviewCard({ item }: { item: MissionCategoryReviewItem }) {
   );
 }
 
-function MissionReviewItems({ mission }: { mission: MissionRowType }) {
+function MissionReviewItems({
+  mission,
+  brands,
+  productTypes,
+}: {
+  mission: MissionRowType;
+  brands: BrandCatalogOption[];
+  productTypes: CatalogOption[];
+}) {
   if (mission.review_items.length === 0) return null;
 
   return (
@@ -591,14 +636,27 @@ function MissionReviewItems({ mission }: { mission: MissionRowType }) {
       </div>
       <div className="grid gap-4">
         {mission.review_items.map((item) => (
-          <CategoryReviewCard key={item.id} item={item} />
+          <CategoryReviewCard
+            key={item.id}
+            item={item}
+            brands={brands}
+            productTypes={productTypes}
+          />
         ))}
       </div>
     </div>
   );
 }
 
-function MissionRow({ mission }: { mission: MissionRowType }) {
+function MissionRow({
+  mission,
+  brands,
+  productTypes,
+}: {
+  mission: MissionRowType;
+  brands: BrandCatalogOption[];
+  productTypes: CatalogOption[];
+}) {
   const [isExpanded, setIsExpanded] = useState(mission.pending_classifications_count > 0);
   const hasReviews = mission.review_items.length > 0;
 
@@ -609,9 +667,14 @@ function MissionRow({ mission }: { mission: MissionRowType }) {
           <div className="max-w-xl space-y-1">
             <p className="font-medium text-sm leading-snug">{mission.product_intent}</p>
             {mission.destination_context && (
-              <p className="text-sm text-muted-foreground line-clamp-2">
-                {mission.destination_context}
-              </p>
+              <div className="space-y-0.5">
+                <p className="text-xs font-medium text-muted-foreground">
+                  Destination Context
+                </p>
+                <p className="text-sm text-muted-foreground line-clamp-2">
+                  {mission.destination_context}
+                </p>
+              </div>
             )}
             <MissionSourceLinks seedUrl={mission.seed_url} />
           </div>
@@ -621,7 +684,7 @@ function MissionRow({ mission }: { mission: MissionRowType }) {
             <StatusBadge status={mission.status} />
             {mission.pending_classifications_count > 0 && (
               <div className="text-xs text-amber-600 dark:text-amber-500 font-medium">
-                {mission.pending_classifications_count} pending review{mission.pending_classifications_count === 1 ? "" : "s"}
+                {mission.pending_classifications_count} pending review group{mission.pending_classifications_count === 1 ? "" : "s"}
               </div>
             )}
           </div>
@@ -651,7 +714,11 @@ function MissionRow({ mission }: { mission: MissionRowType }) {
         <TableRow className="bg-muted/10 hover:bg-muted/10 border-b-2">
           <TableCell colSpan={4} className="p-0 border-t">
             <div className="px-6 py-6 bg-muted/20">
-              <MissionReviewItems mission={mission} />
+              <MissionReviewItems
+                mission={mission}
+                brands={brands}
+                productTypes={productTypes}
+              />
             </div>
           </TableCell>
         </TableRow>
@@ -660,7 +727,11 @@ function MissionRow({ mission }: { mission: MissionRowType }) {
   );
 }
 
-export function MissionsTable({ missions }: MissionsTableProps) {
+export function MissionsTable({
+  missions,
+  brands = [],
+  productTypes = [],
+}: MissionsTableProps) {
   if (missions.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 px-4 border border-dashed rounded-lg bg-muted/10 text-center">
@@ -688,7 +759,12 @@ export function MissionsTable({ missions }: MissionsTableProps) {
         </TableHeader>
         <TableBody>
           {missions.map((mission) => (
-            <MissionRow key={mission.id} mission={mission} />
+            <MissionRow
+              key={mission.id}
+              mission={mission}
+              brands={brands}
+              productTypes={productTypes}
+            />
           ))}
         </TableBody>
       </Table>

@@ -1,0 +1,666 @@
+{
+  "brands": [
+    {
+      "name": "Louis Vuitton",
+      "aliases": [
+        "LV",
+        "L V",
+        "Louv",
+        "LVuitton",
+        "louis-vuitton",
+        "louisvuitton"
+      ]
+    },
+    {
+      "name": "Gucci",
+      "aliases": ["GUCCI", "Gcci", "GC", "gucci"]
+    },
+    {
+      "name": "Adidas",
+      "aliases": ["adidas", "adi", "three stripes", "a didas"]
+    },
+    {
+      "name": "Nike",
+      "aliases": ["nike", "nk", "n i k e", "swoosh"]
+    },
+    {
+      "name": "Air Jordan",
+      "aliases": ["AJ", "AJ1", "Jordan", "Jrdn", "air-jordan"]
+    },
+    {
+      "name": "Yeezy",
+      "aliases": ["yeezy", "yzy", "350", "350v2"]
+    },
+    {
+      "name": "Balenciaga",
+      "aliases": ["balenciaga", "balenci", "balen", "balenci-aga"]
+    },
+    {
+      "name": "Burberry",
+      "aliases": ["burberry", "burserry", "bbry"]
+    },
+    {
+      "name": "Dolce & Gabbana",
+      "aliases": ["D&G", "d&g", "D G", "d d", "dolce-gabbana"]
+    },
+    {
+      "name": "Stone Island",
+      "aliases": ["stone island", "SI", "stoney", "topstoney"]
+    },
+    {
+      "name": "Moncler",
+      "aliases": ["moncler", "topmoncler", "moncler maya"]
+    },
+    {
+      "name": "Rick Owens",
+      "aliases": ["rick owens", "rick", "drkshdw", "rick-owens"]
+    },
+    {
+      "name": "Maison Margiela",
+      "aliases": ["maison margiela", "margiela", "MMM", "gats"]
+    },
+    {
+      "name": "Philipp Plein",
+      "aliases": ["philipp plein", "philip plein", "philipp-plein"]
+    },
+    {
+      "name": "Fear of God",
+      "aliases": ["FOG", "FoG", "Essentials", "fear-of-god"]
+    },
+    {
+      "name": "Chrome Hearts",
+      "aliases": ["CH", "Chrome-Hearts", "chromehearts", "chrome hearts"]
+    },
+    {
+      "name": "Supreme",
+      "aliases": ["supreme", "sup", "bogo"]
+    },
+    {
+      "name": "Audemars Piguet",
+      "aliases": ["AP", "royal oak", "audemars-piguet"]
+    },
+    {
+      "name": "Patek Philippe",
+      "aliases": ["PP", "patek", "nautilus", "patek-philippe"]
+    },
+    {
+      "name": "Richard Mille",
+      "aliases": ["RM", "richard mille", "rm011", "richard-mille"]
+    },
+    {
+      "name": "Rolex",
+      "aliases": ["rolex", "rlx", "sub", "datejust"]
+    },
+    {
+      "name": "Cartier",
+      "aliases": ["cartier", "Crt", "ballon bleu", "santos"]
+    },
+    {
+      "name": "Van Cleef & Arpels",
+      "aliases": ["VCA", "Van Cleef", "van-cleef", "alhambra"]
+    },
+    {
+      "name": "Fendi",
+      "aliases": ["fendi", "baguette", "ff"]
+    },
+    {
+      "name": "Dior",
+      "aliases": ["dior", "CD", "saddle bag", "christian dior"]
+    },
+    {
+      "name": "Chanel",
+      "aliases": ["CC", "Cnl", "chanel", "chanel bags"]
+    },
+    {
+      "name": "New Balance",
+      "aliases": ["NB", "new balance", "nb990", "nb2002r"]
+    },
+    {
+      "name": "Comme des Garçons",
+      "aliases": ["CDG", "comme des garcons", "comme", "cdg play"]
+    },
+    {
+      "name": "Anti Social Social Club",
+      "aliases": ["ASSC", "anti social social club", "anti social"]
+    },
+    {
+      "name": "BAPE",
+      "aliases": ["bape", "a bathing ape", "bapesta"]
+    },
+    {
+      "name": "Abercrombie & Fitch",
+      "aliases": ["AF", "Abercrombie", "abercrombie-fitch"]
+    },
+    {
+      "name": "Ralph Lauren",
+      "aliases": ["POLO", "ralph lauren", "ralph-lauren"]
+    },
+    {
+      "name": "Vetements",
+      "aliases": ["vet", "vetements"]
+    },
+    {
+      "name": "Acne Studios",
+      "aliases": ["Acne", "acne studios", "acne-studios"]
+    },
+    {
+      "name": "Under Armour",
+      "aliases": ["UA", "under armour", "under-armour"]
+    },
+    {
+      "name": "Asics",
+      "aliases": ["asics", "亚瑟士Asics", "gel kayano"]
+    },
+    {
+      "name": "Timberland",
+      "aliases": ["timberland", "tb", "6 inch boots"]
+    },
+    {
+      "name": "Puma",
+      "aliases": ["puma", "彪马 puma", "suede"]
+    },
+    {
+      "name": "Reebok",
+      "aliases": ["reebok", "reebook", "rbk"]
+    },
+    {
+      "name": "Versace",
+      "aliases": ["versace", "medusa", "vsc"]
+    },
+    {
+      "name": "Saint Laurent",
+      "aliases": ["YSL", "saint laurent", "slp", "saint-laurent"]
+    },
+    {
+      "name": "Gosha Rubchinskiy",
+      "aliases": ["Gosha", "gosha-rubchinskiy"]
+    },
+    {
+      "name": "Prada",
+      "aliases": ["prada", "Prd", "PRA*DA*"]
+    },
+    {
+      "name": "Tiffany & Co.",
+      "aliases": ["Tiffany", "Tiff", "tiffany and co", "tiffany-co"]
+    },
+    {
+      "name": "Loewe",
+      "aliases": ["loewe", "lw", "puzzle bag"]
+    },
+    {
+      "name": "Omega",
+      "aliases": ["omega", "seamaster"]
+    },
+    {
+      "name": "Goyard",
+      "aliases": ["goyard", "gyd", "st louis"]
+    },
+    {
+      "name": "Celine",
+      "aliases": ["celine", "cln", "triomphe"]
+    },
+    {
+      "name": "Bottega Veneta",
+      "aliases": ["bottega", "bottega veneta", "BV", "cassette"]
+    },
+    {
+      "name": "Hermes",
+      "aliases": ["hermes", "HMS", "birkin", "kelly"]
+    },
+    {
+      "name": "Arc'teryx",
+      "aliases": ["arcteryx", "arc teryx", "arc'teryx", "arc"]
+    },
+    {
+      "name": "Canada Goose",
+      "aliases": ["CG", "canada goose", "canada-goose"]
+    },
+    {
+      "name": "Off-White",
+      "aliases": ["OW", "off white", "off-white", "offwhite"]
+    },
+    {
+      "name": "Palm Angels",
+      "aliases": ["PA", "palm angels", "palm-angels"]
+    },
+    {
+      "name": "Givenchy",
+      "aliases": ["givenchy", "gvnchy"]
+    },
+    {
+      "name": "Valentino",
+      "aliases": ["valentino", "VLTN", "rockstud"]
+    },
+    {
+      "name": "Oakley",
+      "aliases": ["oakley", "okly"]
+    },
+    {
+      "name": "Evisu",
+      "aliases": ["evisu", "evsu"]
+    },
+    {
+      "name": "Palace",
+      "aliases": ["palace", "tri ferg", "pal"]
+    },
+    {
+      "name": "Amiri",
+      "aliases": ["amiri", "amr"]
+    },
+    {
+      "name": "Alexander McQueen",
+      "aliases": ["mcqueen", "alexander mcqueen", "alexander-mcqueen"]
+    },
+    {
+      "name": "Salomon",
+      "aliases": ["salomon", "xt6", "xt-6"]
+    },
+    {
+      "name": "Hoka",
+      "aliases": ["hoka", "hoka one one", "clifton"]
+    },
+    {
+      "name": "Golden Goose",
+      "aliases": ["GG", "golden goose", "golden-goose"]
+    },
+    {
+      "name": "Gallery Dept",
+      "aliases": ["gallery dept", "gallerydept", "GD"]
+    },
+    {
+      "name": "Heron Preston",
+      "aliases": ["HP", "heron preston", "heron-preston"]
+    },
+    {
+      "name": "Kenzo",
+      "aliases": ["kenzo", "tiger"]
+    },
+    {
+      "name": "Bvlgari",
+      "aliases": ["bvlgari", "bulgari", "bvlg"]
+    },
+    {
+      "name": "On Running",
+      "aliases": ["On", "on running", "on-running"]
+    },
+    {
+      "name": "Saucony",
+      "aliases": ["saucony", "scny"]
+    },
+    {
+      "name": "Vacheron Constantin",
+      "aliases": ["vacheron", "vacheron constantin", "vacheron-constantin"]
+    },
+    {
+      "name": "Jaeger-LeCoultre",
+      "aliases": ["JLC", "jaeger lecoultre", "jaeger-lecoultre"]
+    },
+    {
+      "name": "Blancpain",
+      "aliases": ["blancpain", "fifty fathoms"]
+    },
+    {
+      "name": "IWC",
+      "aliases": ["iwc", "portugieser"]
+    },
+    {
+      "name": "Stussy",
+      "aliases": ["stussy", "stussy8ball"]
+    },
+    {
+      "name": "Carhartt WIP",
+      "aliases": ["Carhartt", "carhartt wip", "carhartt-wip"]
+    },
+    {
+      "name": "The North Face",
+      "aliases": ["TNF", "the north face", "north face", "nuptse"]
+    },
+    {
+      "name": "C.P. Company",
+      "aliases": ["cp company", "c.p. company", "cp-company"]
+    },
+    {
+      "name": "Denim Tears",
+      "aliases": ["denim tears", "DT"]
+    },
+    {
+      "name": "Hellstar",
+      "aliases": ["hellstar", "hell star"]
+    },
+    {
+      "name": "Corteiz",
+      "aliases": ["corteiz", "crtz", "rules the world"]
+    },
+    {
+      "name": "Trapstar",
+      "aliases": ["trapstar", "ts"]
+    },
+    {
+      "name": "UGG",
+      "aliases": ["ugg", "tasman", "ultra mini"]
+    },
+    {
+      "name": "Anonymous Club",
+      "aliases": ["anonymous club", "anonymous-club"]
+    },
+    {
+      "name": "Tommy Hilfiger",
+      "aliases": ["tommy hilfiger", "tommy", "TH"]
+    },
+    {
+      "name": "Lacoste",
+      "aliases": ["lacoste", "crocodile"]
+    },
+    {
+      "name": "Hugo Boss",
+      "aliases": ["hugo boss", "boss", "HB"]
+    },
+    {
+      "name": "Converse",
+      "aliases": ["converse", "chuck 70", "all star"]
+    },
+    {
+      "name": "Vans",
+      "aliases": ["vans", "old skool", "sk8 hi"]
+    }
+  ],
+  "product_types": [
+    { "name": "A-Line Dresses" },
+    { "name": "Activewear" },
+    { "name": "AirPods Cases" },
+    { "name": "Ankle Boots" },
+    { "name": "Anklets" },
+    { "name": "Arm Warmers" },
+    { "name": "Ascots" },
+    { "name": "Ashtrays" },
+    { "name": "Baby Clothes" },
+    { "name": "Backpacks" },
+    { "name": "Bag Charms" },
+    { "name": "Bags" },
+    { "name": "Baguette Bags" },
+    { "name": "Balaclavas" },
+    { "name": "Ball Gowns" },
+    { "name": "Bandanas" },
+    { "name": "Bandeaus" },
+    { "name": "Bangles" },
+    { "name": "Base Layers" },
+    { "name": "Baseball Caps" },
+    { "name": "Basketball Shoes" },
+    { "name": "Bathrobes" },
+    { "name": "Beanies" },
+    { "name": "Belt Bags" },
+    { "name": "Belts" },
+    { "name": "Biker Shorts" },
+    { "name": "Bikinis" },
+    { "name": "Blankets" },
+    { "name": "Blazers" },
+    { "name": "Blouses" },
+    { "name": "Boardshorts" },
+    { "name": "Boat Neck Shirts" },
+    { "name": "Boat Shoes" },
+    { "name": "Bodycon Dresses" },
+    { "name": "Bodysuits" },
+    { "name": "Bolo Ties" },
+    { "name": "Bomber Jackets" },
+    { "name": "Bootcut Jeans" },
+    { "name": "Boots" },
+    { "name": "Bow Ties" },
+    { "name": "Bowling Bags" },
+    { "name": "Boxer Briefs" },
+    { "name": "Boxers" },
+    { "name": "Boyfriend Jeans" },
+    { "name": "Bracelets" },
+    { "name": "Bralettes" },
+    { "name": "Briefcases" },
+    { "name": "Briefs" },
+    { "name": "Brogues" },
+    { "name": "Brooches" },
+    { "name": "Bucket Bags" },
+    { "name": "Bucket Hats" },
+    { "name": "Bustiers" },
+    { "name": "Button-down Shirts" },
+    { "name": "Cable-Knit Sweaters" },
+    { "name": "Camera Bags" },
+    { "name": "Camisoles" },
+    { "name": "Candles" },
+    { "name": "Capri Pants" },
+    { "name": "Caps" },
+    { "name": "Cardholders" },
+    { "name": "Cardigans" },
+    { "name": "Cargo Pants" },
+    { "name": "Cargo Shorts" },
+    { "name": "Chains" },
+    { "name": "Charms" },
+    { "name": "Chelsea Boots" },
+    { "name": "Chinos" },
+    { "name": "Chokers" },
+    { "name": "Chukka Boots" },
+    { "name": "Chunky Sneakers" },
+    { "name": "Clogs" },
+    { "name": "Clutches" },
+    { "name": "Co-ords" },
+    { "name": "Coach Jackets" },
+    { "name": "Coats" },
+    { "name": "Cocktail Dresses" },
+    { "name": "Combat Boots" },
+    { "name": "Corsets" },
+    { "name": "Cosmetic Cases" },
+    { "name": "Cravats" },
+    { "name": "Crew Socks" },
+    { "name": "Crewneck Sweaters" },
+    { "name": "Crop Tops" },
+    { "name": "Crossbody" },
+    { "name": "Cufflinks" },
+    { "name": "Cushions" },
+    { "name": "Dad Sneakers" },
+    { "name": "Denim Jackets" },
+    { "name": "Derby Shoes" },
+    { "name": "Desert Boots" },
+    { "name": "Dog Accessories" },
+    { "name": "Dolphin Shorts" },
+    { "name": "Dresses" },
+    { "name": "Drinkware" },
+    { "name": "Driving Shoes" },
+    { "name": "Duffel Bags" },
+    { "name": "Duffle Coats" },
+    { "name": "Durags" },
+    { "name": "Ear Cuffs" },
+    { "name": "Earrings" },
+    { "name": "Espadrilles" },
+    { "name": "Eye Masks" },
+    { "name": "Fanny Packs" },
+    { "name": "Field Jackets" },
+    { "name": "Flannels" },
+    { "name": "Flared Jeans" },
+    { "name": "Flasks" },
+    { "name": "Flats" },
+    { "name": "Fleece" },
+    { "name": "Fleece Jackets" },
+    { "name": "Fragrances" },
+    { "name": "Garters" },
+    { "name": "Gladiator Sandals" },
+    { "name": "Glasses" },
+    { "name": "Gloves" },
+    { "name": "Graphic Hoodies" },
+    { "name": "Graphic Tees" },
+    { "name": "Grillz" },
+    { "name": "Gym Bags" },
+    { "name": "Hair Accessories" },
+    { "name": "Halter Dresses" },
+    { "name": "Halter Tops" },
+    { "name": "Handbags" },
+    { "name": "Harrington Jackets" },
+    { "name": "Hats" },
+    { "name": "Headbands" },
+    { "name": "Heels" },
+    { "name": "Henley Shirts" },
+    { "name": "High Tops" },
+    { "name": "Hijabs" },
+    { "name": "Hiking Boots" },
+    { "name": "Hobo Bags" },
+    { "name": "Home Decor" },
+    { "name": "Hoodies" },
+    { "name": "Hosiery" },
+    { "name": "Hot Pants" },
+    { "name": "Jackets" },
+    { "name": "Jeans" },
+    { "name": "Jerseys" },
+    { "name": "Jewelry" },
+    { "name": "Joggers" },
+    { "name": "Jumpsuits" },
+    { "name": "Key Holders" },
+    { "name": "Keychains" },
+    { "name": "Kitten Heels" },
+    { "name": "Knee-High Boots" },
+    { "name": "Knee-High Socks" },
+    { "name": "Knitwear" },
+    { "name": "Lace-ups" },
+    { "name": "Lanyards" },
+    { "name": "Laptop Bags" },
+    { "name": "Laptop Sleeves" },
+    { "name": "Leather Jackets" },
+    { "name": "Leg Warmers" },
+    { "name": "Leggings" },
+    { "name": "Lingerie" },
+    { "name": "Loafers" },
+    { "name": "Long Sleeve Shirts" },
+    { "name": "Loungewear" },
+    { "name": "Luggage" },
+    { "name": "Mary Jane Shoes" },
+    { "name": "Mary Janes" },
+    { "name": "Messenger Bags" },
+    { "name": "Minaudières" },
+    { "name": "Mini Bags" },
+    { "name": "Mom Jeans" },
+    { "name": "Monk Strap Shoes" },
+    { "name": "Mules" },
+    { "name": "Neck Gaiters" },
+    { "name": "Necklaces" },
+    { "name": "Nightshirts" },
+    { "name": "One-Piece Swimsuits" },
+    { "name": "Onesies" },
+    { "name": "Overalls" },
+    { "name": "Overcoats" },
+    { "name": "Oxfords" },
+    { "name": "Palazzo Pants" },
+    { "name": "Pants" },
+    { "name": "Pantyhose" },
+    { "name": "Parkas" },
+    { "name": "Passport Covers" },
+    { "name": "Pea Coats" },
+    { "name": "Peacoats" },
+    { "name": "Pencil Skirts" },
+    { "name": "Pendants" },
+    { "name": "Penny Loafers" },
+    { "name": "Peplum Tops" },
+    { "name": "Phone Cases" },
+    { "name": "Phone Pouches" },
+    { "name": "Pins" },
+    { "name": "Platforms" },
+    { "name": "Pocket Squares" },
+    { "name": "Polo Shirts" },
+    { "name": "Polos" },
+    { "name": "Pouches" },
+    { "name": "Puffer Jackets" },
+    { "name": "Puffer Vests" },
+    { "name": "Pullovers" },
+    { "name": "Pumps" },
+    { "name": "Rain Boots" },
+    { "name": "Raincoats" },
+    { "name": "Rings" },
+    { "name": "Rompers" },
+    { "name": "Rucksacks" },
+    { "name": "Rugs" },
+    { "name": "Running Shoes" },
+    { "name": "Saddle Bags" },
+    { "name": "Sandals" },
+    { "name": "Satchels" },
+    { "name": "Scarves" },
+    { "name": "Shapewear" },
+    { "name": "Sheath Dresses" },
+    { "name": "Shift Dresses" },
+    { "name": "Shirts" },
+    { "name": "Shoes" },
+    { "name": "Shorts" },
+    { "name": "Shoulder Bags" },
+    { "name": "Skate Shoes" },
+    { "name": "Skinny Jeans" },
+    { "name": "Skirts" },
+    { "name": "Skorts" },
+    { "name": "Sleepwear" },
+    { "name": "Slides" },
+    { "name": "Slip Dresses" },
+    { "name": "Slip-ons" },
+    { "name": "Slippers" },
+    { "name": "Smartwatches" },
+    { "name": "Snapbacks" },
+    { "name": "Sneakers" },
+    { "name": "Snow Boots" },
+    { "name": "Socks" },
+    { "name": "Stilettos" },
+    { "name": "Stockings" },
+    { "name": "Strapbacks" },
+    { "name": "Studs" },
+    { "name": "Suits" },
+    { "name": "Sundresses" },
+    { "name": "Sunglasses" },
+    { "name": "Suspenders" },
+    { "name": "Sweater Dresses" },
+    { "name": "Sweaters" },
+    { "name": "Sweatpants" },
+    { "name": "Sweatshirts" },
+    { "name": "Swim Shorts" },
+    { "name": "Swim Trunks" },
+    { "name": "Swimwear" },
+    { "name": "T-Shirts" },
+    { "name": "Tank Tops" },
+    { "name": "Tankinis" },
+    { "name": "Tassel Loafers" },
+    { "name": "Tech Accessories" },
+    { "name": "Tennis Shoes" },
+    { "name": "Thigh-High Boots" },
+    { "name": "Thigh-High Socks" },
+    { "name": "Thongs" },
+    { "name": "Ties" },
+    { "name": "Tights" },
+    { "name": "Toiletry Bags" },
+    { "name": "Top Handle Bags" },
+    { "name": "Tote Bags" },
+    { "name": "Towels" },
+    { "name": "Track Jackets" },
+    { "name": "Track Pants" },
+    { "name": "Tracksuits" },
+    { "name": "Travel Accessories" },
+    { "name": "Travel Bags" },
+    { "name": "Trays" },
+    { "name": "Trench Coats" },
+    { "name": "Trousers" },
+    { "name": "Trucker Hats" },
+    { "name": "Trucker Jackets" },
+    { "name": "Tube Tops" },
+    { "name": "Tunics" },
+    { "name": "Turbans" },
+    { "name": "Turtlenecks" },
+    { "name": "Umbrellas" },
+    { "name": "Underwear" },
+    { "name": "V-Neck Sweaters" },
+    { "name": "Varsity Jackets" },
+    { "name": "Vests" },
+    { "name": "Visors" },
+    { "name": "Wallets" },
+    { "name": "Wash Bags" },
+    { "name": "Watch Straps" },
+    { "name": "Watches" },
+    { "name": "Water Bottles" },
+    { "name": "Wedges" },
+    { "name": "Weekender Bags" },
+    { "name": "Wide-Leg Jeans" },
+    { "name": "Wide-Leg Pants" },
+    { "name": "Windbreakers" },
+    { "name": "Wingtips" },
+    { "name": "Work Boots" },
+    { "name": "Wristlets" },
+    { "name": "Yoga Mats" },
+    { "name": "Zip-Up Hoodies" }
+  ]
+}

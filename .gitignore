@@ -1,7 +1,7 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # scripts
-scripts/
+scripts/create-admin-user.ts
 
 # dependencies
 /node_modules

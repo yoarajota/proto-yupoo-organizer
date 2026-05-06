@@ -1,16 +1,7 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
-import {
-  BookOpen,
-  MessageSquare,
-  Package,
-  Store,
-  Tags,
-  Target,
-  type LucideIcon,
-} from "lucide-react";
-import type { Database } from "@/types/database";
 import type { InquiryWithSupplier } from "@/components/organisms/InquiryRow";
 import { InquiryTable } from "@/components/organisms/InquiryTable";
 import {
@@ -30,71 +21,43 @@ import { cn } from "@/lib/utils";
 import { MissionSheet } from "@/components/organisms/MissionSheet";
 import { MissionsTable, type MissionRowType } from "@/components/organisms/MissionsTable";
 import { CatalogManager } from "@/components/organisms/CatalogManager";
-import type { CatalogOption } from "@/lib/catalog";
+import type { BrandCatalogOption, CatalogOption } from "@/lib/catalog";
 import { getSupplierBrandNames } from "@/lib/supplier-catalog";
-
-type ProductRow = Database["public"]["Tables"]["products"]["Row"];
-type PhotoHashRow = Database["public"]["Tables"]["photo_hashes"]["Row"];
-
-type ProductForCard = ProductRow & {
-  photo_hashes: (PhotoHashRow & {
-    similarity_matches?: { is_dismissed: boolean }[];
-  })[];
-};
-
-type SectionId = "missions" | "catalog" | "inquiries" | "suppliers" | "products" | "sources";
+import type {
+  CatalogPaginationState,
+  ProductForCard,
+} from "@/app/(app)/workspace/data";
+import {
+  getWorkspaceSectionHref,
+  workspaceSectionMeta,
+  workspaceSectionOrder,
+  type WorkspaceSectionId,
+} from "@/components/organisms/workspace-sections";
 
 interface UnifiedWorkspaceProps {
+  activeSection: WorkspaceSectionId;
+  isAdmin: boolean;
   missions: MissionRowType[];
   inquiries: InquiryWithSupplier[];
   suppliers: SupplierWithStats[];
   products: ProductForCard[];
   sources: SourceWithProfile[];
-  brands: CatalogOption[];
+  brands: BrandCatalogOption[];
   productTypes: CatalogOption[];
+  catalogSummary: {
+    totalBrands: number;
+    totalAliases: number;
+    totalProductTypes: number;
+  };
+  catalogPagination: {
+    brands: CatalogPaginationState;
+    productTypes: CatalogPaginationState;
+  };
 }
 
-const sectionMeta: Record<
-  SectionId,
-  {
-    label: string;
-    caption: string;
-    icon: LucideIcon;
-  }
-> = {
-  missions: {
-    label: "Missions",
-    caption: "Autonomous sourcing agents.",
-    icon: Target,
-  },
-  catalog: {
-    label: "Catalog",
-    caption: "Brands and product type registry.",
-    icon: Tags,
-  },
-  inquiries: {
-    label: "Inquiries",
-    caption: "Active negotiations and follow-ups.",
-    icon: MessageSquare,
-  },
-  suppliers: {
-    label: "Suppliers",
-    caption: "Contacts, trust notes, and brand coverage.",
-    icon: Store,
-  },
-  products: {
-    label: "Products",
-    caption: "Upload photos and inspect references.",
-    icon: Package,
-  },
-  sources: {
-    label: "Sources",
-    caption: "Research links and channel intelligence.",
-    icon: BookOpen,
-  },
-};
-
 export function UnifiedWorkspace({
+  activeSection,
+  isAdmin,
   missions,
   inquiries,
   suppliers,
@@ -102,8 +65,9 @@ export function UnifiedWorkspace({
   sources,
   brands,
   productTypes,
+  catalogSummary,
+  catalogPagination,
 }: UnifiedWorkspaceProps) {
-  const [activeSection, setActiveSection] = useState<SectionId>("missions");
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [selectedPlatform, setSelectedPlatform] = useState<
     SourcePlatform | "all"
@@ -140,9 +104,9 @@ export function UnifiedWorkspace({
     [selectedBrands, selectedPlatform, sources],
   );
 
-  const sectionCounts: Record<SectionId, number> = {
+  const sectionCounts: Record<WorkspaceSectionId, number> = {
     missions: missions.length,
-    catalog: brands.length + productTypes.length,
+    catalog: catalogSummary.totalBrands + catalogSummary.totalProductTypes,
     inquiries: inquiries.length,
     suppliers: suppliers.length,
     products: products.length,
@@ -177,8 +141,8 @@ export function UnifiedWorkspace({
           </h1>
 
           <div className="grid grid-cols-2 gap-3 pt-1 sm:grid-cols-3 xl:grid-cols-6">
-            {(Object.keys(sectionMeta) as SectionId[]).map((sectionId) => {
-              const section = sectionMeta[sectionId];
+            {workspaceSectionOrder.map((sectionId) => {
+              const section = workspaceSectionMeta[sectionId];
               const Icon = section.icon;
 
               return (
@@ -204,23 +168,22 @@ export function UnifiedWorkspace({
 
       <div className="rounded-none border border-border/60 bg-background/85 p-2 backdrop-blur-sm">
         <div className="flex gap-2 overflow-x-auto pb-1">
-          {(Object.keys(sectionMeta) as SectionId[]).map((sectionId) => {
-            const section = sectionMeta[sectionId];
+          {workspaceSectionOrder.map((sectionId) => {
+            const section = workspaceSectionMeta[sectionId];
             const Icon = section.icon;
             const active = sectionId === activeSection;
 
             return (
-              <button
+              <Link
                 key={sectionId}
-                type="button"
-                onClick={() => setActiveSection(sectionId)}
+                href={getWorkspaceSectionHref(sectionId)}
                 className={cn(
                   "flex min-w-[150px] flex-1 items-center gap-2 border px-3 py-2 text-left transition-colors",
                   active
                     ? "border-primary bg-primary/15 text-foreground"
                     : "border-border bg-background text-muted-foreground hover:text-foreground",
                 )}
-                aria-pressed={active}
+                aria-current={active ? "page" : undefined}
               >
                 <Icon className="h-4 w-4 shrink-0" />
                 <div className="min-w-0">
@@ -231,7 +194,7 @@ export function UnifiedWorkspace({
                     {section.caption}
                   </p>
                 </div>
-              </button>
+              </Link>
             );
           })}
         </div>
@@ -240,10 +203,10 @@ export function UnifiedWorkspace({
       <section className="space-y-5">
         <header className="space-y-1">
           <h2 className="text-2xl font-heading tracking-tight text-foreground">
-            {sectionMeta[activeSection].label}
+            {workspaceSectionMeta[activeSection].label}
           </h2>
           <p className="text-sm text-muted-foreground">
-            {sectionMeta[activeSection].caption}
+            {workspaceSectionMeta[activeSection].caption}
           </p>
         </header>
 
@@ -262,7 +225,11 @@ export function UnifiedWorkspace({
               />
             </div>
 
-            <MissionsTable missions={missions} />
+            <MissionsTable
+              missions={missions}
+              brands={brands}
+              productTypes={productTypes}
+            />
           </div>
         )}
 
@@ -280,11 +247,25 @@ export function UnifiedWorkspace({
           <div className="space-y-4 border border-border/60 bg-background p-4 sm:p-5">
             <div className="border-b border-border/50 pb-4">
               <p className="text-xs uppercase tracking-widest text-muted-foreground/70">
-                Register reusable values for products and suppliers
+                {isAdmin
+                  ? "Register reusable values for products and suppliers"
+                  : "Browse the shared taxonomy used across sourcing workflows"}
               </p>
             </div>
 
-            <CatalogManager brands={brands} productTypes={productTypes} />
+            <CatalogManager
+              brands={brands}
+              productTypes={productTypes}
+              isAdmin={isAdmin}
+              summary={catalogSummary}
+              pagination={catalogPagination}
+              searchState={{
+                brandQuery: catalogPagination.brands.query,
+                brandPage: catalogPagination.brands.page,
+                productTypeQuery: catalogPagination.productTypes.query,
+                productTypePage: catalogPagination.productTypes.page,
+              }}
+            />
           </div>
         )}
 

@@ -2,6 +2,14 @@
 
 import { revalidatePath } from 'next/cache'
 import { writeAgentRunArtifact } from '@/lib/agent-logs'
+import {
+  buildCatalogEmbedding,
+  CATALOG_EMBEDDING_BRAND_THRESHOLD,
+  CATALOG_EMBEDDING_PRODUCT_THRESHOLD,
+  stripCatalogSignal,
+  type CatalogEmbeddingEntityType,
+  type CatalogEmbeddingMatch,
+} from '@/lib/catalog-embeddings'
 import { createClient } from '@/lib/supabase/server'
 import {
   ReviewMissionCategoryClassificationSchema,
@@ -15,6 +23,8 @@ import {
   normalizeBrandSignal,
   normalizeProductSignal,
 } from '@/lib/yupoo/classification'
+import type { CanonicalBrand, CanonicalProduct } from '@/lib/yupoo/category-config'
+import type { Database, Json } from '@/types/database'
 
 type CategoryRow = {
   id: string
@@ -41,6 +51,20 @@ type ClassifiedRow = {
   result: ReturnType<typeof classifyDiscoveredCategory>
 }
 
+type BrandAliasRow = {
+  slug: string
+  name: string
+  brand_aliases?: { alias: string }[] | null
+}
+
+type ProductTypeRow = {
+  slug: string
+  name: string
+}
+
+type CatalogEmbeddingRpcMatch =
+  Database['public']['Functions']['match_catalog_embeddings']['Returns'][number]
+
 function getOrigin(url: string) {
   try {
     return new URL(url).origin
@@ -55,6 +79,73 @@ function buildDisplayLabel(brand: string | null, product: string | null, fallbac
     ? product.charAt(0).toUpperCase() + product.slice(1)
     : null
   return [brandDisplay, productDisplay].filter(Boolean).join(' ') || fallback
+}
+
+function toCanonicalBrands(rows: BrandAliasRow[]): CanonicalBrand[] {
+  return rows.map((brand) => ({
+    canonical: brand.slug,
+    display: brand.name,
+    aliases: Array.from(
+      new Set([
+        brand.name,
+        brand.slug,
+        ...(brand.brand_aliases ?? []).map((alias) => alias.alias),
+      ]),
+    ),
+    embeddingTerms: Array.from(
+      new Set([
+        brand.name,
+        brand.slug,
+        ...(brand.brand_aliases ?? []).map((alias) => alias.alias),
+      ]),
+    ),
+  }))
+}
+
+function toCanonicalProducts(rows: ProductTypeRow[]): CanonicalProduct[] {
+  return rows.map((productType) => ({
+    canonical: productType.slug,
+    display: productType.name,
+    aliases: Array.from(new Set([productType.name, productType.slug])),
+  }))
+}
+
+function toCatalogEmbeddingMatch(
+  row: CatalogEmbeddingRpcMatch | null | undefined,
+  threshold: number,
+): CatalogEmbeddingMatch | null {
+  if (!row?.canonical_slug || !row.entity_id || !row.entity_type || !row.source_text) return null
+
+  return {
+    entity_type: row.entity_type as CatalogEmbeddingEntityType,
+    entity_id: row.entity_id,
+    canonical_slug: row.canonical_slug,
+    canonical_name: row.canonical_name ?? row.canonical_slug,
+    source_text: row.source_text,
+    similarity: Number(row.similarity ?? 0),
+    threshold,
+  }
+}
+
+async function fetchCatalogEmbeddingMatch(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  input: {
+    text: string
+    entityTypes: CatalogEmbeddingEntityType[]
+    threshold: number
+  },
+) {
+  const embedding = buildCatalogEmbedding(input.text)
+  const { data, error } = await supabase.rpc('match_catalog_embeddings', {
+    query_embedding: embedding.pgvector,
+    entity_types: input.entityTypes,
+    match_threshold: input.threshold,
+    match_count: 1,
+  })
+
+  if (error) throw new Error(error.message)
+
+  return toCatalogEmbeddingMatch((data ?? [])[0] as CatalogEmbeddingRpcMatch | undefined, input.threshold)
 }
 
 function incrementBucket(bucket: Record<string, number>, key: string | null | undefined) {
@@ -178,7 +269,7 @@ async function refreshSupplierClassificationRefs(
 
   const { error: updateError } = await supabase
     .from('discovered_suppliers')
-    .upsert(updates, { onConflict: 'id' })
+    .upsert(updates as never, { onConflict: 'id' })
 
   if (updateError) throw new Error(updateError.message)
 
@@ -249,27 +340,93 @@ export async function runMissionCategoryClassification(input: RunMissionCategory
 
   if (categoriesError) return { data: null, error: { message: categoriesError.message } }
 
+  const { data: brandRows, error: brandRowsError } = await supabase
+    .from('brands')
+    .select('slug, name, brand_aliases(alias)')
+    .order('name')
+
+  if (brandRowsError) return { data: null, error: { message: brandRowsError.message } }
+
+  const { data: productTypeRows, error: productTypeRowsError } = await supabase
+    .from('product_types')
+    .select('slug, name')
+    .order('name')
+
+  if (productTypeRowsError) return { data: null, error: { message: productTypeRowsError.message } }
+
+  const canonicalBrands = (brandRows ?? []).length > 0
+    ? toCanonicalBrands((brandRows ?? []) as BrandAliasRow[])
+    : undefined
+  const canonicalProducts = (productTypeRows ?? []).length > 0
+    ? toCanonicalProducts((productTypeRows ?? []) as ProductTypeRow[])
+    : undefined
+
   const categoryRows = (discoveredCategories ?? []) as ClassificationSourceRow[]
 
   const normalizedLabelCounts = new Map<string, number>()
   const normalizedLabelCountsByShop = new Map<string, number>()
   const repeatedSignalPairCounts = new Map<string, number>()
 
-  const baseClassified = categoryRows.map((category) => {
-    const baseResult = classifyDiscoveredCategory(category)
+  const ruleOnlyClassified = categoryRows.map((category) => ({
+    source: category,
+    ruleResult: classifyDiscoveredCategory({
+      ...category,
+      context: {
+        canonical_brands: canonicalBrands,
+        canonical_products: canonicalProducts,
+      },
+    }),
+  }))
+
+  const vectorResolved = await Promise.all(ruleOnlyClassified.map(async ({ source, ruleResult }) => {
+    const needsBrandMatch = !ruleResult.brand_signal
+    const needsProductMatch = !ruleResult.product_signal
+
+    let embeddingBrandMatch: CatalogEmbeddingMatch | null = null
+    let embeddingProductMatch: CatalogEmbeddingMatch | null = null
+
+    if (needsBrandMatch || needsProductMatch) {
+      ;[embeddingBrandMatch, embeddingProductMatch] = await Promise.all([
+        needsBrandMatch
+          ? fetchCatalogEmbeddingMatch(supabase, {
+              text: stripCatalogSignal(ruleResult.normalized_label, ruleResult.product_signal),
+              entityTypes: ['brand', 'brand_alias'],
+              threshold: CATALOG_EMBEDDING_BRAND_THRESHOLD,
+            })
+          : Promise.resolve(null),
+        needsProductMatch
+          ? fetchCatalogEmbeddingMatch(supabase, {
+              text: stripCatalogSignal(ruleResult.normalized_label, ruleResult.brand_signal),
+              entityTypes: ['product_type'],
+              threshold: CATALOG_EMBEDDING_PRODUCT_THRESHOLD,
+            })
+          : Promise.resolve(null),
+      ])
+    }
+
+    const result = classifyDiscoveredCategory({
+      ...source,
+      context: {
+        canonical_brands: canonicalBrands,
+        canonical_products: canonicalProducts,
+        embedding_brand_match: embeddingBrandMatch,
+        embedding_product_match: embeddingProductMatch,
+      },
+    })
+
     normalizedLabelCounts.set(
-      baseResult.normalized_label,
-      (normalizedLabelCounts.get(baseResult.normalized_label) ?? 0) + 1,
+      result.normalized_label,
+      (normalizedLabelCounts.get(result.normalized_label) ?? 0) + 1,
     )
 
-    const shopLabelKey = `${getOrigin(category.source_url)}::${baseResult.normalized_label}`
+    const shopLabelKey = `${getOrigin(source.source_url)}::${result.normalized_label}`
     normalizedLabelCountsByShop.set(
       shopLabelKey,
       (normalizedLabelCountsByShop.get(shopLabelKey) ?? 0) + 1,
     )
 
-    if (baseResult.brand_signal && baseResult.product_signal) {
-      const signalPairKey = `${baseResult.brand_signal}::${baseResult.product_signal}`
+    if (result.brand_signal && result.product_signal) {
+      const signalPairKey = `${result.brand_signal}::${result.product_signal}`
       repeatedSignalPairCounts.set(
         signalPairKey,
         (repeatedSignalPairCounts.get(signalPairKey) ?? 0) + 1,
@@ -277,16 +434,27 @@ export async function runMissionCategoryClassification(input: RunMissionCategory
     }
 
     return {
-      source: category,
-      baseResult,
+      source,
+      embeddingBrandMatch,
+      embeddingProductMatch,
+      baseResult: result,
     }
-  })
+  }))
 
-  const classified = baseClassified.map(({ source, baseResult }) => ({
+  const classified = vectorResolved.map(({
+    source,
+    embeddingBrandMatch,
+    embeddingProductMatch,
+    baseResult,
+  }) => ({
     source,
     result: classifyDiscoveredCategory({
       ...source,
       context: {
+        canonical_brands: canonicalBrands,
+        canonical_products: canonicalProducts,
+        embedding_brand_match: embeddingBrandMatch,
+        embedding_product_match: embeddingProductMatch,
         repeated_normalized_label_count: normalizedLabelCounts.get(baseResult.normalized_label) ?? 1,
         repeated_within_shop_label_count:
           normalizedLabelCountsByShop.get(`${getOrigin(source.source_url)}::${baseResult.normalized_label}`) ?? 1,
@@ -331,7 +499,7 @@ export async function runMissionCategoryClassification(input: RunMissionCategory
           canonical_brand: result.brand_signal,
           canonical_product_type: result.product_signal,
           display_label: result.display_label,
-          evidence: result.evidence,
+          evidence: result.evidence as Json,
           classification_status: result.classification_status,
           classification_confidence: result.classification_confidence,
           classification_method: result.classification_method,
@@ -460,16 +628,38 @@ export async function reviewMissionCategoryClassification(
 
   const category = discoveredCategory as CategoryRow
 
+  const [{ data: brandRows, error: brandRowsError }, { data: productTypeRows, error: productTypeRowsError }] =
+    await Promise.all([
+      supabase
+        .from('brands')
+        .select('slug, name, brand_aliases(alias)')
+        .order('name'),
+      supabase
+        .from('product_types')
+        .select('slug, name')
+        .order('name'),
+    ])
+
+  if (brandRowsError) return { data: null, error: { message: brandRowsError.message } }
+  if (productTypeRowsError) return { data: null, error: { message: productTypeRowsError.message } }
+
+  const canonicalBrands = (brandRows ?? []).length > 0
+    ? toCanonicalBrands((brandRows ?? []) as BrandAliasRow[])
+    : undefined
+  const canonicalProducts = (productTypeRows ?? []).length > 0
+    ? toCanonicalProducts((productTypeRows ?? []) as ProductTypeRow[])
+    : undefined
+
   const brandSignal =
     parsed.data.decision === 'edit'
-      ? normalizeBrandSignal(parsed.data.brand)
+      ? normalizeBrandSignal(parsed.data.brand, canonicalBrands)
       : parsed.data.decision === 'reject'
         ? null
         : category.brand_signal
 
   const productSignal =
     parsed.data.decision === 'edit'
-      ? normalizeProductSignal(parsed.data.product)
+      ? normalizeProductSignal(parsed.data.product, canonicalProducts)
       : parsed.data.decision === 'reject'
         ? null
         : category.product_signal

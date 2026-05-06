@@ -8,21 +8,12 @@ import type {
   ClassificationMethod,
   ClassificationStatus,
 } from '@/lib/schemas/sourcing-classification'
-
-const LEET_CHAR_MAP: Record<string, string> = {
-  '!': 'i',
-  '$': 's',
-  '0': 'o',
-  '1': 'i',
-  '3': 'e',
-  '4': 'a',
-  '5': 's',
-  '6': 'g',
-  '7': 't',
-  '8': 'b',
-  '9': 'g',
-  '@': 'a',
-}
+import {
+  CATALOG_EMBEDDING_BRAND_THRESHOLD,
+  CATALOG_EMBEDDING_PRODUCT_THRESHOLD,
+  cleanCatalogEmbeddingText,
+  type CatalogEmbeddingMatch,
+} from '@/lib/catalog-embeddings'
 
 export type ClassifiedCategory = {
   normalized_label: string
@@ -40,6 +31,10 @@ export type ClassificationContext = {
   repeated_normalized_label_count?: number
   repeated_within_shop_label_count?: number
   repeated_signal_pair_count?: number
+  canonical_brands?: CanonicalBrand[]
+  canonical_products?: CanonicalProduct[]
+  embedding_brand_match?: CatalogEmbeddingMatch | null
+  embedding_product_match?: CatalogEmbeddingMatch | null
 }
 
 type AliasMatch<TCanonical extends string = string> = {
@@ -48,62 +43,20 @@ type AliasMatch<TCanonical extends string = string> = {
   match_type: 'exact' | 'contains'
 }
 
-type EmbeddingBrandMatch = {
-  canonical: string
-  similarity: number
-  matched_term: string
-}
-
 const CLASSIFICATION_THRESHOLDS = {
   directBrandOnlyAutoAccept: 0.9,
-  embeddingBrandMinSimilarity: 0.7,
+  embeddingBrandMinSimilarity: CATALOG_EMBEDDING_BRAND_THRESHOLD,
   repeatedBrandProductAutoAccept: 0.74,
   strictBrandProductAutoAccept: 0.82,
+  embeddingProductMinSimilarity: CATALOG_EMBEDDING_PRODUCT_THRESHOLD,
 } as const
 
 function round4(value: number) {
   return Math.round(value * 10000) / 10000
 }
 
-function compactSingleLetterRuns(tokens: string[]) {
-  const compacted: string[] = []
-  let pending = ''
-
-  tokens.forEach((token) => {
-    if (/^[a-z]$/.test(token)) {
-      pending += token
-      return
-    }
-
-    if (pending.length >= 2) compacted.push(pending)
-    pending = ''
-    compacted.push(token)
-  })
-
-  if (pending.length >= 2) compacted.push(pending)
-  return compacted
-}
-
 export function cleanupCategoryText(input: string) {
-  const normalized = Array.from(
-    input
-      .normalize('NFKD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase(),
-  )
-    .map((char) => LEET_CHAR_MAP[char] ?? char)
-    .join('')
-    .replace(/[_/|]+/g, ' ')
-    .replace(/&/g, ' and ')
-    .replace(/[^a-z0-9]+/g, ' ')
-    .replace(/(.)\1{2,}/g, '$1$1')
-    .trim()
-
-  const compactedTokens = compactSingleLetterRuns(
-    normalized.split(/\s+/).filter(Boolean),
-  )
-
-  return compactedTokens.join(' ')
+  return cleanCatalogEmbeddingText(input)
 }
 
 function tokenize(input: string) {
@@ -124,8 +77,17 @@ function buildAliasMap<T extends { canonical: string; aliases: string[] }>(entri
   return map
 }
 
-const BRAND_ALIAS_MAP = buildAliasMap(CANONICAL_BRANDS)
-const PRODUCT_ALIAS_MAP = buildAliasMap(CANONICAL_PRODUCTS)
+function mergeCatalogEntries<T extends { canonical: string }>(
+  fallbackEntries: T[],
+  catalogEntries?: T[],
+) {
+  if (!catalogEntries || catalogEntries.length === 0) return fallbackEntries
+
+  const merged = new Map<string, T>()
+  fallbackEntries.forEach((entry) => merged.set(entry.canonical, entry))
+  catalogEntries.forEach((entry) => merged.set(entry.canonical, entry))
+  return Array.from(merged.values())
+}
 
 function findAliasMatchDetailed<T extends CanonicalBrand | CanonicalProduct>(
   cleaned: string,
@@ -166,105 +128,71 @@ function findAliasMatch(
   return findAliasMatchDetailed(cleaned, entries, aliasMap)?.canonical ?? null
 }
 
-function grams3(input: string) {
-  const compact = `  ${input.replace(/\s+/g, ' ')}  `
-  const counts = new Map<string, number>()
-  for (let index = 0; index < compact.length - 2; index += 1) {
-    const gram = compact.slice(index, index + 3)
-    counts.set(gram, (counts.get(gram) ?? 0) + 1)
-  }
-  return counts
-}
-
-function cosineSimilarity(left: Map<string, number>, right: Map<string, number>) {
-  let dot = 0
-  let leftNorm = 0
-  let rightNorm = 0
-
-  left.forEach((value, key) => {
-    dot += value * (right.get(key) ?? 0)
-    leftNorm += value ** 2
-  })
-  right.forEach((value) => {
-    rightNorm += value ** 2
-  })
-
-  if (leftNorm === 0 || rightNorm === 0) return 0
-  return dot / (Math.sqrt(leftNorm) * Math.sqrt(rightNorm))
-}
-
-function rankBrandByEmbedding(cleaned: string, productSignal: string | null): EmbeddingBrandMatch | null {
-  const stripped = cleanupCategoryText(
-    productSignal ? cleaned.replace(new RegExp(productSignal, 'g'), ' ') : cleaned,
-  )
-  const vector = grams3(stripped)
-  let best: EmbeddingBrandMatch | null = null
-
-  CANONICAL_BRANDS.forEach((brand) => {
-    let bestTerm = brand.embeddingTerms[0] ?? brand.canonical
-    let similarity = 0
-
-    brand.embeddingTerms.forEach((term) => {
-      const score = cosineSimilarity(vector, grams3(cleanupCategoryText(term)))
-      if (score > similarity) {
-        similarity = score
-        bestTerm = term
-      }
-    })
-
-    if (!best || similarity > best.similarity) {
-      best = {
-        canonical: brand.canonical,
-        similarity,
-        matched_term: bestTerm,
-      }
-    }
-  })
-
-  return best
-}
-
-function lookupBrandDisplay(canonical: string | null) {
+function lookupBrandDisplay(canonical: string | null, brandEntries: CanonicalBrand[] = CANONICAL_BRANDS) {
   if (!canonical) return null
-  return CANONICAL_BRANDS.find((brand) => brand.canonical === canonical)?.display ?? canonical.toUpperCase()
+  return brandEntries.find((brand) => brand.canonical === canonical)?.display ?? canonical.toUpperCase()
 }
 
-function lookupProductDisplay(canonical: string | null) {
+function lookupProductDisplay(
+  canonical: string | null,
+  productEntries: CanonicalProduct[] = CANONICAL_PRODUCTS,
+) {
   if (!canonical) return null
-  return CANONICAL_PRODUCTS.find((product) => product.canonical === canonical)?.display ?? canonical
+  return productEntries.find((product) => product.canonical === canonical)?.display ?? canonical
 }
 
-function buildDisplayLabel(brandSignal: string | null, productSignal: string | null, fallback: string) {
-  const brandDisplay = lookupBrandDisplay(brandSignal)
-  const productDisplay = lookupProductDisplay(productSignal)
+function buildDisplayLabel(
+  brandSignal: string | null,
+  productSignal: string | null,
+  fallback: string,
+  brandEntries: CanonicalBrand[] = CANONICAL_BRANDS,
+  productEntries: CanonicalProduct[] = CANONICAL_PRODUCTS,
+) {
+  const brandDisplay = lookupBrandDisplay(brandSignal, brandEntries)
+  const productDisplay = lookupProductDisplay(productSignal, productEntries)
   const combined = [brandDisplay, productDisplay].filter(Boolean).join(' ')
   return combined || fallback
 }
 
-export function normalizeBrandSignal(input?: string | null) {
+export function normalizeBrandSignal(
+  input?: string | null,
+  brandEntries: CanonicalBrand[] = CANONICAL_BRANDS,
+) {
   if (!input) return null
+  const entries = mergeCatalogEntries(CANONICAL_BRANDS, brandEntries)
   const cleaned = cleanupCategoryText(input)
-  return findAliasMatch(cleaned, CANONICAL_BRANDS, BRAND_ALIAS_MAP) ?? cleaned.replace(/\s+/g, '')
+  return findAliasMatch(cleaned, entries, buildAliasMap(entries)) ?? cleaned.replace(/\s+/g, '')
 }
 
-export function normalizeProductSignal(input?: string | null) {
+export function normalizeProductSignal(
+  input?: string | null,
+  productEntries: CanonicalProduct[] = CANONICAL_PRODUCTS,
+) {
   if (!input) return null
+  const entries = mergeCatalogEntries(CANONICAL_PRODUCTS, productEntries)
   const cleaned = cleanupCategoryText(input)
-  return findAliasMatch(cleaned, CANONICAL_PRODUCTS, PRODUCT_ALIAS_MAP) ?? cleaned
+  return findAliasMatch(cleaned, entries, buildAliasMap(entries)) ?? cleaned
 }
 
-export function extractIntentSignals(productIntent: string) {
+export function extractIntentSignals(
+  productIntent: string,
+  context?: Pick<ClassificationContext, 'canonical_brands' | 'canonical_products'>,
+) {
+  const brandEntries = mergeCatalogEntries(CANONICAL_BRANDS, context?.canonical_brands)
+  const productEntries = mergeCatalogEntries(CANONICAL_PRODUCTS, context?.canonical_products)
+  const brandAliasMap = buildAliasMap(brandEntries)
+  const productAliasMap = buildAliasMap(productEntries)
   const cleaned = cleanupCategoryText(productIntent)
-  const brandSignal = findAliasMatch(cleaned, CANONICAL_BRANDS, BRAND_ALIAS_MAP)
+  const brandSignal = findAliasMatch(cleaned, brandEntries, brandAliasMap)
   const productSignals = Array.from(
     new Set(
       tokenize(cleaned)
-        .map((token) => PRODUCT_ALIAS_MAP.get(token))
+        .map((token) => productAliasMap.get(token))
         .filter((value): value is string => Boolean(value)),
     ),
   )
 
-  const inlineProductSignal = findAliasMatch(cleaned, CANONICAL_PRODUCTS, PRODUCT_ALIAS_MAP)
+  const inlineProductSignal = findAliasMatch(cleaned, productEntries, productAliasMap)
   if (inlineProductSignal && !productSignals.includes(inlineProductSignal)) {
     productSignals.push(inlineProductSignal)
   }
@@ -281,28 +209,49 @@ export function classifyDiscoveredCategory(input: {
   category_path: string[]
   source_url: string
   context?: ClassificationContext
-}) : ClassifiedCategory {
+}): ClassifiedCategory {
+  const brandEntries = mergeCatalogEntries(CANONICAL_BRANDS, input.context?.canonical_brands)
+  const productEntries = mergeCatalogEntries(CANONICAL_PRODUCTS, input.context?.canonical_products)
+  const brandAliasMap = buildAliasMap(brandEntries)
+  const productAliasMap = buildAliasMap(productEntries)
   const normalizedLabel = cleanupCategoryText(input.raw_label)
   const rawTokens = tokenize(input.raw_label)
   const pathTokens = input.category_path.flatMap((segment) => tokenize(segment))
-  const productMatch = findAliasMatchDetailed(normalizedLabel, CANONICAL_PRODUCTS, PRODUCT_ALIAS_MAP)
-  const brandMatch = findAliasMatchDetailed(normalizedLabel, CANONICAL_BRANDS, BRAND_ALIAS_MAP)
-  const productSignal = productMatch?.canonical ?? null
+  const productMatch = findAliasMatchDetailed(normalizedLabel, productEntries, productAliasMap)
+  const brandMatch = findAliasMatchDetailed(normalizedLabel, brandEntries, brandAliasMap)
+  let productSignal = productMatch?.canonical ?? null
   const directBrandSignal = brandMatch?.canonical ?? null
 
   let brandSignal = directBrandSignal
   let classificationMethod: ClassificationMethod = directBrandSignal || productSignal ? 'rules' : 'embedding'
   let brandConfidence = directBrandSignal ? 0.98 : 0
-  const productConfidence = productSignal ? 0.95 : 0
-  let embeddingBrandMatch: EmbeddingBrandMatch | null = null
+  let productConfidence = productSignal ? 0.95 : 0
+  let embeddingBrandMatch: CatalogEmbeddingMatch | null = null
+  let embeddingProductMatch: CatalogEmbeddingMatch | null = null
 
   if (!brandSignal) {
-    const embedded = rankBrandByEmbedding(normalizedLabel, productSignal)
-    if (embedded?.similarity && embedded.similarity >= CLASSIFICATION_THRESHOLDS.embeddingBrandMinSimilarity) {
-      brandSignal = embedded.canonical
+    const embedded = input.context?.embedding_brand_match ?? null
+    if (
+      embedded?.similarity &&
+      embedded.similarity >= CLASSIFICATION_THRESHOLDS.embeddingBrandMinSimilarity
+    ) {
+      brandSignal = embedded.canonical_slug
       brandConfidence = embedded.similarity
       classificationMethod = 'embedding'
       embeddingBrandMatch = embedded
+    }
+  }
+
+  if (!productSignal) {
+    const embeddedProduct = input.context?.embedding_product_match ?? null
+    if (
+      embeddedProduct?.similarity &&
+      embeddedProduct.similarity >= CLASSIFICATION_THRESHOLDS.embeddingProductMinSimilarity
+    ) {
+      productSignal = embeddedProduct.canonical_slug
+      productConfidence = embeddedProduct.similarity
+      classificationMethod = 'embedding'
+      embeddingProductMatch = embeddedProduct
     }
   }
 
@@ -398,7 +347,7 @@ export function classifyDiscoveredCategory(input: {
     classification_status: classificationStatus,
     classification_confidence: round4(classificationConfidence),
     classification_method: classificationMethod,
-    display_label: buildDisplayLabel(brandSignal, productSignal, input.raw_label),
+    display_label: buildDisplayLabel(brandSignal, productSignal, input.raw_label, brandEntries, productEntries),
     evidence: {
       raw_label: input.raw_label,
       normalized_label: normalizedLabel,
@@ -413,7 +362,15 @@ export function classifyDiscoveredCategory(input: {
       matched_product_alias: productMatch?.matched_alias ?? null,
       matched_product_alias_type: productMatch?.match_type ?? null,
       embedding_score: embeddingBrandMatch ? round4(embeddingBrandMatch.similarity) : null,
-      embedding_term: embeddingBrandMatch?.matched_term ?? null,
+      embedding_term: embeddingBrandMatch?.source_text ?? null,
+      embedding_entity_type: embeddingBrandMatch?.entity_type ?? null,
+      embedding_source_id: embeddingBrandMatch?.entity_id ?? null,
+      embedding_threshold: embeddingBrandMatch?.threshold ?? null,
+      embedding_product_score: embeddingProductMatch ? round4(embeddingProductMatch.similarity) : null,
+      embedding_product_term: embeddingProductMatch?.source_text ?? null,
+      embedding_product_entity_type: embeddingProductMatch?.entity_type ?? null,
+      embedding_product_source_id: embeddingProductMatch?.entity_id ?? null,
+      embedding_product_threshold: embeddingProductMatch?.threshold ?? null,
       repeated_within_mission_label: repeatedLabelCount >= 2,
       repeated_within_shop_label: repeatedWithinShopLabelCount >= 2,
       repeated_signal_pair: repeatedSignalPairCount >= 2,

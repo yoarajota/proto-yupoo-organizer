@@ -20,6 +20,27 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Catalog Import
+
+External catalog research should be imported into the canonical catalog tables first, then embeddings can be rebuilt from those approved rows.
+
+1. Edit `data/catalog-import.json`.
+2. Set `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`.
+3. Run:
+
+```bash
+pnpm catalog:import
+pnpm catalog:embeddings:seed
+```
+
+This populates the shared catalog tables globally. Rebuild embeddings after import so classification and matching pick up the new approved entries.
+
+You can also import a different file path:
+
+```bash
+pnpm catalog:import -- data/my-research.json
+```
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

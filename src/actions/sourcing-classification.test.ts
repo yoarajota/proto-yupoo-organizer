@@ -79,7 +79,7 @@ describe('runMissionCategoryClassification', () => {
                       mission_id: '550e8400-e29b-41d4-a716-446655440000',
                       source_url: 'https://shop.x.yupoo.com/categories/1',
                       category_path: ['categories', '1'],
-                      raw_label: 'Loui Vuiton Bags',
+                      raw_label: 'L V Bags',
                     },
                   ],
                   error: null,
@@ -101,6 +101,34 @@ describe('runMissionCategoryClassification', () => {
             },
           }),
           upsert: vi.fn().mockResolvedValue({ error: null }),
+        }
+      }
+
+      if (table === 'brands') {
+        return {
+          select: () => ({
+            order: () => Promise.resolve({
+              data: [
+                {
+                  slug: 'lv',
+                  name: 'LV',
+                  brand_aliases: [{ alias: 'L V' }],
+                },
+              ],
+              error: null,
+            }),
+          }),
+        }
+      }
+
+      if (table === 'product_types') {
+        return {
+          select: () => ({
+            order: () => Promise.resolve({
+              data: [{ slug: 'bags', name: 'Bags' }],
+              error: null,
+            }),
+          }),
         }
       }
 
@@ -230,6 +258,34 @@ describe('reviewMissionCategoryClassification', () => {
         return {
           upsert: vi.fn().mockResolvedValue({ error: null }),
           delete: () => ({ eq: () => Promise.resolve({ error: null }) }),
+        }
+      }
+
+      if (table === 'brands') {
+        return {
+          select: () => ({
+            order: () => Promise.resolve({
+              data: [
+                {
+                  slug: 'lv',
+                  name: 'LV',
+                  brand_aliases: [{ alias: 'L V' }],
+                },
+              ],
+              error: null,
+            }),
+          }),
+        }
+      }
+
+      if (table === 'product_types') {
+        return {
+          select: () => ({
+            order: () => Promise.resolve({
+              data: [{ slug: 'bags', name: 'Bags' }],
+              error: null,
+            }),
+          }),
         }
       }
 

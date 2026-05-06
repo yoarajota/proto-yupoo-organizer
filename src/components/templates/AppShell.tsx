@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutGrid, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
-import TopBar from "@/components/organisms/TopBar";
 import SideNav from "@/components/organisms/SideNav";
 
 const navItems = [
@@ -50,11 +49,11 @@ export default function AppShell({
   topBar,
 }: {
   children: React.ReactNode;
-  topBar?: React.ReactNode;
+  topBar: React.ReactNode;
 }) {
   return (
     <div className="flex flex-col min-h-screen">
-      {topBar ?? <TopBar />}
+      {topBar}
 
       <div className="flex flex-1 pt-14">
         {/* Desktop sidebar */}

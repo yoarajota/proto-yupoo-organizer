@@ -143,7 +143,6 @@ export type Database = {
       brands: {
         Row: {
           created_at: string
-          created_by: string
           id: string
           name: string
           slug: string
@@ -151,7 +150,6 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          created_by: string
           id?: string
           name: string
           slug: string
@@ -159,18 +157,105 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          created_by?: string
           id?: string
           name?: string
           slug?: string
           updated_at?: string
         }
+        Relationships: []
+      }
+      brand_aliases: {
+        Row: {
+          alias: string
+          brand_id: string
+          created_at: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          alias: string
+          brand_id: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          alias?: string
+          brand_id?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
         Relationships: [
           {
-            foreignKeyName: "brands_created_by_fkey"
-            columns: ["created_by"]
+            foreignKeyName: "brand_aliases_brand_id_fkey"
+            columns: ["brand_id"]
             isOneToOne: false
-            referencedRelation: "profiles"
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      catalog_embeddings: {
+        Row: {
+          brand_alias_id: string | null
+          brand_id: string | null
+          created_at: string
+          embedding: string
+          entity_ref: string
+          entity_type: string
+          id: string
+          product_type_id: string | null
+          source_hash: string
+          source_text: string
+          updated_at: string
+        }
+        Insert: {
+          brand_alias_id?: string | null
+          brand_id?: string | null
+          created_at?: string
+          embedding: string
+          entity_ref?: string
+          entity_type: string
+          id?: string
+          product_type_id?: string | null
+          source_hash: string
+          source_text: string
+          updated_at?: string
+        }
+        Update: {
+          brand_alias_id?: string | null
+          brand_id?: string | null
+          created_at?: string
+          embedding?: string
+          entity_ref?: string
+          entity_type?: string
+          id?: string
+          product_type_id?: string | null
+          source_hash?: string
+          source_text?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_embeddings_brand_alias_id_fkey"
+            columns: ["brand_alias_id"]
+            isOneToOne: false
+            referencedRelation: "brand_aliases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_embeddings_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_embeddings_product_type_id_fkey"
+            columns: ["product_type_id"]
+            isOneToOne: false
+            referencedRelation: "product_types"
             referencedColumns: ["id"]
           },
         ]
@@ -178,7 +263,6 @@ export type Database = {
       product_types: {
         Row: {
           created_at: string
-          created_by: string
           id: string
           name: string
           slug: string
@@ -186,7 +270,6 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          created_by: string
           id?: string
           name: string
           slug: string
@@ -194,21 +277,12 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          created_by?: string
           id?: string
           name?: string
           slug?: string
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "product_types_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       products: {
         Row: {
@@ -800,6 +874,22 @@ export type Database = {
     }
     Functions: {
       is_admin: { Args: never; Returns: boolean }
+      match_catalog_embeddings: {
+        Args: {
+          entity_types?: string[]
+          match_count?: number
+          match_threshold?: number
+          query_embedding: string
+        }
+        Returns: {
+          canonical_name: string
+          canonical_slug: string
+          entity_id: string
+          entity_type: string
+          similarity: number
+          source_text: string
+        }[]
+      }
     }
     Enums: {
       inquiry_status:
