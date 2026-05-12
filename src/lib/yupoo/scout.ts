@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { DiscoveryBatchSchema, type DiscoveryBatchValues } from '@/lib/schemas/sourcing-discovery'
+import { DiscoveryBatchSchema, type DiscoveryBatchValues } from '../schemas/sourcing-discovery.ts'
 
 const HREF_REGEX = /href\s*=\s*["']([^"']+)["']/gi
 const ANCHOR_REGEX = /<a\b([^>]*)>([\s\S]*?)<\/a>/gi
@@ -10,6 +10,8 @@ const MAX_DISCOVERY_DEPTH = 2
 const MAX_CATEGORY_PREVIEW_IMAGES = 4
 const DEFAULT_MAX_DISCOVERY_REQUESTS = 24
 const DEFAULT_FETCH_TIMEOUT_MS = 15_000
+const DEFAULT_FETCH_RETRY_ATTEMPTS = 2
+const FETCH_RETRY_DELAY_MS = 250
 const GENERIC_PATH_REF_SEGMENTS = new Set(['albums', 'categories', 'contact'])
 const YUPOO_FETCH_HEADERS = {
   accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -90,6 +92,10 @@ function parseHrefUrls(html: string, baseUrl: string) {
 
 function hashHtml(html: string) {
   return createHash('sha256').update(html).digest('hex')
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 function extractAttribute(tagAttributes: string, attributeName: string) {
@@ -360,10 +366,6 @@ function collectCategoryPreviewDebug(html: string, baseUrl: string) {
   return { previewUrls, matchedCandidates }
 }
 
-function extractCategoryPreviewImageUrls(html: string, baseUrl: string) {
-  return collectCategoryPreviewDebug(html, baseUrl).previewUrls
-}
-
 function buildShopDiscoveryUrls(seedUrl: string) {
   const seed = new URL(seedUrl)
   const urls = new Set<string>()
@@ -597,7 +599,24 @@ export function extractDiscoveryFromHtml(html: string, baseUrl: string, extracte
   })
 }
 
-async function fetchYupooHtml(url: string, fetchImpl: FetchLike) {
+function isTransientYupooFetchError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error)
+  return (
+    message === 'This operation was aborted' ||
+    message === 'fetch failed' ||
+    message === 'HTTP 408' ||
+    message === 'HTTP 429' ||
+    message === 'HTTP 500' ||
+    message === 'HTTP 502' ||
+    message === 'HTTP 503' ||
+    message === 'HTTP 504' ||
+    message === 'HTTP 522' ||
+    message === 'HTTP 524' ||
+    message === 'HTTP 525'
+  )
+}
+
+async function fetchYupooHtmlOnce(url: string, fetchImpl: FetchLike) {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), DEFAULT_FETCH_TIMEOUT_MS)
 
@@ -622,6 +641,24 @@ async function fetchYupooHtml(url: string, fetchImpl: FetchLike) {
   } finally {
     clearTimeout(timeout)
   }
+}
+
+async function fetchYupooHtml(url: string, fetchImpl: FetchLike) {
+  let lastError: unknown = null
+
+  for (let attempt = 1; attempt <= DEFAULT_FETCH_RETRY_ATTEMPTS; attempt += 1) {
+    try {
+      return await fetchYupooHtmlOnce(url, fetchImpl)
+    } catch (error) {
+      lastError = error
+      if (attempt >= DEFAULT_FETCH_RETRY_ATTEMPTS || !isTransientYupooFetchError(error)) {
+        throw error
+      }
+      await sleep(FETCH_RETRY_DELAY_MS * attempt)
+    }
+  }
+
+  throw lastError
 }
 
 export async function scrapeYupooDiscovery(
@@ -723,6 +760,16 @@ export async function scrapeYupooDiscovery(
 
       discoveredUrls.forEach((url) => enqueue(url, request.depth + 1))
     } catch (error) {
+      const failedUrl = new URL(request.url)
+
+      if (
+        request.depth === 0 &&
+        failedUrl.pathname === PRIMARY_DISCOVERY_PATH &&
+        failedUrl.search === ''
+      ) {
+        buildFallbackDiscoveryUrls(seedUrl, request.url).forEach((url) => enqueue(url, request.depth + 1))
+      }
+
       pages.push({
         url: request.url,
         status: 'failed',

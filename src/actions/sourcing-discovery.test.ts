@@ -25,7 +25,7 @@ vi.mock('next/cache', () => ({
 }))
 
 const { extractDiscoveryFromHtml } = await import('@/lib/yupoo/scout')
-const { runMissionDiscovery } = await import('./sourcing-discovery')
+const { executeMissionDiscoveryDirect: runMissionDiscovery } = await import('./sourcing-discovery')
 
 function makeChain(result = { error: null }) {
   const chain: Record<string, (...args: unknown[]) => unknown> = {}

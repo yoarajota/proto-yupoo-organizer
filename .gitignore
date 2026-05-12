@@ -43,3 +43,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# agent/runtime output
+.claude/_output/*
+.agent/
+.codex/
+.codex
+storage/agent-logs/

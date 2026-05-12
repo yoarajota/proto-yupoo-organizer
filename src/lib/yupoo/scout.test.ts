@@ -515,6 +515,109 @@ describe('extractDiscoveryFromHtml', () => {
     )
   })
 
+  it('falls back to albums when the primary categories page fails', async () => {
+    const fetchImpl = vi.fn(async (input: string | URL | Request) => {
+      const url = input instanceof Request ? input.url : input.toString()
+      scrapeState.processed.push(url)
+
+      if (url === 'https://west42.x.yupoo.com/categories') {
+        return new Response('', { status: 525 })
+      }
+
+      if (url === 'https://west42.x.yupoo.com/albums') {
+        return new Response('<a href="/categories/111">Scarves</a>', {
+          status: 200,
+          headers: { 'content-type': 'text/html' },
+        })
+      }
+
+      if (url === 'https://west42.x.yupoo.com/categories/111') {
+        return new Response(
+          `
+            <div class="categories__box-left">
+              <a href="/categories/111" title="Scarves">15</a>
+            </div>
+            <div class="categories__children">
+              <img data-type="photo" src="/scarves.jpg" />
+            </div>
+          `,
+          {
+            status: 200,
+            headers: { 'content-type': 'text/html' },
+          },
+        )
+      }
+
+      return new Response('', { status: 404 })
+    }) as unknown as typeof fetch
+
+    const extracted = await scrapeYupooDiscovery('https://west42.x.yupoo.com/', 6, fetchImpl)
+
+    expect(scrapeState.processed).toEqual(
+      expect.arrayContaining([
+        'https://west42.x.yupoo.com/categories',
+        'https://west42.x.yupoo.com/albums',
+        'https://west42.x.yupoo.com/categories/111',
+      ]),
+    )
+    expect(extracted.pages).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          url: 'https://west42.x.yupoo.com/categories',
+          status: 'failed',
+          error: 'HTTP 525',
+        }),
+      ]),
+    )
+    expect(extracted.categories).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          source_url: 'https://west42.x.yupoo.com/categories/111',
+          preview_image_urls: ['https://west42.x.yupoo.com/scarves.jpg'],
+          preview_image_status: 'fetched',
+        }),
+      ]),
+    )
+  })
+
+  it('retries transient Yupoo edge failures before recording a page failure', async () => {
+    const attempts = new Map<string, number>()
+    const fetchImpl = vi.fn(async (input: string | URL | Request) => {
+      const url = input instanceof Request ? input.url : input.toString()
+      const attempt = (attempts.get(url) ?? 0) + 1
+      attempts.set(url, attempt)
+      scrapeState.processed.push(url)
+
+      if (url === 'https://west42.x.yupoo.com/categories' && attempt === 1) {
+        return new Response('', { status: 522 })
+      }
+
+      return new Response(
+        `
+          <div class="categories__box-left">
+            <a href="/categories/111" title="Scarves">15</a>
+          </div>
+        `,
+        {
+          status: 200,
+          headers: { 'content-type': 'text/html' },
+        },
+      )
+    }) as unknown as typeof fetch
+
+    const extracted = await scrapeYupooDiscovery('https://west42.x.yupoo.com/', 1, fetchImpl)
+
+    expect(attempts.get('https://west42.x.yupoo.com/categories')).toBe(2)
+    expect(extracted.pages).toEqual([
+      expect.objectContaining({
+        url: 'https://west42.x.yupoo.com/categories',
+        status: 'fetched',
+        error: null,
+        categories_count: 1,
+      }),
+    ])
+  })
+
   it('marks discovered-only categories without fetched previews as non-confirmed empties', () => {
     const extracted = extractDiscoveryFromHtml(
       `

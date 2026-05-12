@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { enqueueMissionStage } from '@/lib/mission-queue'
 import { createClient } from '@/lib/supabase/server'
 import {
   RunMissionMatchingSchema,
@@ -9,6 +10,27 @@ import {
 import { rankSuppliersForMission } from '@/lib/yupoo/match'
 
 export async function runMissionMatching(input: RunMissionMatchingValues) {
+  const parsed = RunMissionMatchingSchema.safeParse(input)
+  if (!parsed.success) return { data: null, error: { message: 'Invalid matching payload.' } }
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { data: null, error: { message: 'Unauthorized' } }
+
+  const result = await enqueueMissionStage(supabase, {
+    mission_id: parsed.data.mission_id,
+    stage: 'matching',
+    payload: {
+      shortlist_limit: parsed.data.shortlist_limit,
+      requested_by: user.id,
+    },
+  })
+
+  revalidatePath('/workspace')
+  return result
+}
+
+export async function executeMissionMatchingDirect(input: RunMissionMatchingValues) {
   const parsed = RunMissionMatchingSchema.safeParse(input)
   if (!parsed.success) return { data: null, error: { message: 'Invalid matching payload.' } }
 

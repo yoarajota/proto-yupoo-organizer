@@ -33,9 +33,7 @@ export function MissionSheet({ trigger }: MissionSheetProps) {
     resolver: zodResolver(CreateSourcingMissionSchema),
     mode: "onBlur",
     defaultValues: {
-      product_intent: "",
       seed_url: "",
-      destination_context: "",
     },
   });
 
@@ -69,23 +67,6 @@ export function MissionSheet({ trigger }: MissionSheetProps) {
           className="flex flex-col gap-4 p-6 flex-1 overflow-y-auto"
         >
           <div className="flex flex-col gap-1">
-            <label htmlFor="product_intent" className="text-label-sm font-medium">
-              Product Intent <span className="text-destructive">*</span>
-            </label>
-            <textarea
-              id="product_intent"
-              {...register("product_intent")}
-              placeholder="e.g. Find manufacturers for premium titanium water bottles..."
-              rows={4}
-              className="rounded-lg border border-border bg-background px-3 py-1.5 text-body-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:border-ring resize-none aria-invalid:border-destructive"
-              aria-invalid={!!errors.product_intent}
-            />
-            {errors.product_intent && (
-              <p className="text-label-xs text-destructive">{errors.product_intent.message as React.ReactNode}</p>
-            )}
-          </div>
-
-          <div className="flex flex-col gap-1">
             <label htmlFor="seed_url" className="text-label-sm font-medium">
               Shop URL <span className="text-destructive">*</span>
             </label>
@@ -99,18 +80,6 @@ export function MissionSheet({ trigger }: MissionSheetProps) {
             {errors.seed_url && (
               <p className="text-label-xs text-destructive">{errors.seed_url.message as React.ReactNode}</p>
             )}
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <label htmlFor="destination_context" className="text-label-sm font-medium">
-              Context / Audience
-            </label>
-            <input
-              id="destination_context"
-              {...register("destination_context")}
-              placeholder="e.g. Trendy outdoor enthusiasts in the US"
-              className="rounded-lg border border-border bg-background px-3 py-1.5 text-body-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:border-ring"
-            />
           </div>
 
           {formError && (
@@ -134,7 +103,7 @@ export function MissionSheet({ trigger }: MissionSheetProps) {
             onClick={handleSubmit(onSubmit)}
             className="flex-1"
           >
-            {isPending ? "Creating..." : "Create Mission"}
+            {isPending ? "Creating..." : "Create Scrape"}
           </Button>
         </SheetFooter>
       </SheetContent>

@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { enqueueMissionStage } from '@/lib/mission-queue'
 import { createClient } from '@/lib/supabase/server'
 import {
   ApproveOutreachSuggestionSchema,
@@ -13,6 +14,27 @@ import {
 import { buildOutreachMessage } from '@/lib/yupoo/outreach'
 
 export async function generateOutreachSuggestions(input: GenerateOutreachSuggestionsValues) {
+  const parsed = GenerateOutreachSuggestionsSchema.safeParse(input)
+  if (!parsed.success) return { data: null, error: { message: 'Invalid outreach payload.' } }
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { data: null, error: { message: 'Unauthorized' } }
+
+  const result = await enqueueMissionStage(supabase, {
+    mission_id: parsed.data.mission_id,
+    stage: 'suggestion_generation',
+    payload: {
+      max_suggestions: parsed.data.max_suggestions,
+      requested_by: user.id,
+    },
+  })
+
+  revalidatePath('/workspace')
+  return result
+}
+
+export async function executeOutreachSuggestionsDirect(input: GenerateOutreachSuggestionsValues) {
   const parsed = GenerateOutreachSuggestionsSchema.safeParse(input)
   if (!parsed.success) return { data: null, error: { message: 'Invalid outreach payload.' } }
 

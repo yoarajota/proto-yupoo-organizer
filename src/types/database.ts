@@ -652,17 +652,126 @@ export type Database = {
           },
         ]
       }
+      sourcing_mission_runs: {
+        Row: {
+          attempt_number: number
+          created_at: string
+          diagnostics: Json
+          error_code: string | null
+          error_message: string | null
+          finished_at: string | null
+          id: string
+          mission_id: string
+          queue_message_id: string | null
+          queued_at: string | null
+          stage_name: string
+          started_at: string | null
+          status: string
+        }
+        Insert: {
+          attempt_number?: number
+          created_at?: string
+          diagnostics?: Json
+          error_code?: string | null
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          mission_id: string
+          queue_message_id?: string | null
+          queued_at?: string | null
+          stage_name: string
+          started_at?: string | null
+          status: string
+        }
+        Update: {
+          attempt_number?: number
+          created_at?: string
+          diagnostics?: Json
+          error_code?: string | null
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          mission_id?: string
+          queue_message_id?: string | null
+          queued_at?: string | null
+          stage_name?: string
+          started_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sourcing_mission_runs_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "sourcing_missions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sourcing_mission_stage_events: {
+        Row: {
+          created_at: string
+          diagnostics: Json
+          event_name: string
+          id: string
+          mission_id: string
+          run_id: string | null
+          stage_name: string
+        }
+        Insert: {
+          created_at?: string
+          diagnostics?: Json
+          event_name: string
+          id?: string
+          mission_id: string
+          run_id?: string | null
+          stage_name: string
+        }
+        Update: {
+          created_at?: string
+          diagnostics?: Json
+          event_name?: string
+          id?: string
+          mission_id?: string
+          run_id?: string | null
+          stage_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sourcing_mission_stage_events_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "sourcing_missions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sourcing_mission_stage_events_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "sourcing_mission_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sourcing_missions: {
         Row: {
           constraints: Json
           created_at: string
           created_by: string
+          current_stage: string | null
           destination_context: string | null
+          attempt_count: number
+          failed_at: string | null
           first_suggestion_batch_at: string | null
           first_valid_quote_at: string | null
           id: string
+          last_error_code: string | null
+          last_error_message: string | null
+          last_queue_message_id: string | null
           objective: string
           product_intent: string
+          queued_at: string | null
+          running_at: string | null
           seed_url: string
           status: Database["public"]["Enums"]["sourcing_mission_status"]
           updated_at: string
@@ -671,12 +780,20 @@ export type Database = {
           constraints?: Json
           created_at?: string
           created_by: string
+          current_stage?: string | null
           destination_context?: string | null
+          attempt_count?: number
+          failed_at?: string | null
           first_suggestion_batch_at?: string | null
           first_valid_quote_at?: string | null
           id?: string
+          last_error_code?: string | null
+          last_error_message?: string | null
+          last_queue_message_id?: string | null
           objective?: string
           product_intent: string
+          queued_at?: string | null
+          running_at?: string | null
           seed_url: string
           status?: Database["public"]["Enums"]["sourcing_mission_status"]
           updated_at?: string
@@ -685,12 +802,20 @@ export type Database = {
           constraints?: Json
           created_at?: string
           created_by?: string
+          current_stage?: string | null
           destination_context?: string | null
+          attempt_count?: number
+          failed_at?: string | null
           first_suggestion_batch_at?: string | null
           first_valid_quote_at?: string | null
           id?: string
+          last_error_code?: string | null
+          last_error_message?: string | null
+          last_queue_message_id?: string | null
           objective?: string
           product_intent?: string
+          queued_at?: string | null
+          running_at?: string | null
           seed_url?: string
           status?: Database["public"]["Enums"]["sourcing_mission_status"]
           updated_at?: string
@@ -901,13 +1026,18 @@ export type Database = {
       platform_type: "reddit" | "discord" | "whatsapp" | "other"
       sourcing_mission_status:
         | "created"
+        | "discovery_queued"
         | "scanning"
+        | "classification_queued"
         | "classifying_categories"
+        | "matching_queued"
         | "matching"
         | "suggestions_ready"
+        | "outreach_queued"
         | "awaiting_approval"
         | "approved_for_outreach"
         | "replies_received"
+        | "parse_queued"
         | "offers_normalized"
         | "completed"
         | "blocked_needs_input"
@@ -1054,13 +1184,18 @@ export const Constants = {
       platform_type: ["reddit", "discord", "whatsapp", "other"],
       sourcing_mission_status: [
         "created",
+        "discovery_queued",
         "scanning",
+        "classification_queued",
         "classifying_categories",
+        "matching_queued",
         "matching",
         "suggestions_ready",
+        "outreach_queued",
         "awaiting_approval",
         "approved_for_outreach",
         "replies_received",
+        "parse_queued",
         "offers_normalized",
         "completed",
         "blocked_needs_input",

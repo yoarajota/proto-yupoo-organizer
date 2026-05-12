@@ -229,6 +229,7 @@ export function UnifiedWorkspace({
               missions={missions}
               brands={brands}
               productTypes={productTypes}
+              isAdmin={isAdmin}
             />
           </div>
         )}

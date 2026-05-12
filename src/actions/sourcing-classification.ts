@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { writeAgentRunArtifact } from '@/lib/agent-logs'
+import { enqueueMissionStage } from '@/lib/mission-queue'
 import {
   buildCatalogEmbedding,
   CATALOG_EMBEDDING_BRAND_THRESHOLD,
@@ -291,7 +292,7 @@ async function updateMissionStatusFromPendingReviews(
     (category) => category.classification_status === 'needs_review',
   ).length
 
-  const status = pendingReviews === 0 ? 'matching' : 'classifying_categories'
+  const status = 'completed'
 
   const { error: statusError } = await supabase
     .from('sourcing_missions')
@@ -307,6 +308,24 @@ async function updateMissionStatusFromPendingReviews(
 }
 
 export async function runMissionCategoryClassification(input: RunMissionCategoryClassificationValues) {
+  const parsed = RunMissionCategoryClassificationSchema.safeParse(input)
+  if (!parsed.success) return { data: null, error: { message: 'Invalid classification payload.' } }
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { data: null, error: { message: 'Unauthorized' } }
+
+  const result = await enqueueMissionStage(supabase, {
+    mission_id: parsed.data.mission_id,
+    stage: 'classifying_categories',
+    payload: { requested_by: user.id },
+  })
+
+  revalidatePath('/workspace')
+  return result
+}
+
+export async function executeMissionCategoryClassificationDirect(input: RunMissionCategoryClassificationValues) {
   const parsed = RunMissionCategoryClassificationSchema.safeParse(input)
   if (!parsed.success) return { data: null, error: { message: 'Invalid classification payload.' } }
 

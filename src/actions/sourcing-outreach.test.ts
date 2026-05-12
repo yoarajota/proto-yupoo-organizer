@@ -15,7 +15,7 @@ vi.mock('next/cache', () => ({
 }))
 
 const {
-  generateOutreachSuggestions,
+  executeOutreachSuggestionsDirect: generateOutreachSuggestions,
   approveOutreachSuggestion,
   exportOutreachSuggestion,
 } = await import('./sourcing-outreach')

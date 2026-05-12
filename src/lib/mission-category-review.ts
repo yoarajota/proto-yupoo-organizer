@@ -24,6 +24,13 @@ export interface MissionRowType {
   seed_url: string
   destination_context: string | null
   status: string
+  current_stage?: string | null
+  queued_at?: string | null
+  running_at?: string | null
+  failed_at?: string | null
+  attempt_count?: number
+  last_error_message?: string | null
+  last_error_code?: string | null
   created_at: string
   pending_classifications_count: number
   review_items: MissionCategoryReviewItem[]

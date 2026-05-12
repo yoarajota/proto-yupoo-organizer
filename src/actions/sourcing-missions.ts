@@ -4,10 +4,12 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import {
   CreateSourcingMissionSchema,
+  DeleteSourcingMissionSchema,
   UpdateSourcingMissionStatusSchema,
   type CreateSourcingMissionValues,
   type SourcingMissionStatus,
 } from '@/lib/schemas/sourcing-mission'
+import type { Json } from '@/types/database'
 
 export async function createSourcingMission(formData: CreateSourcingMissionValues) {
   const parsed = CreateSourcingMissionSchema.safeParse(formData)
@@ -17,14 +19,17 @@ export async function createSourcingMission(formData: CreateSourcingMissionValue
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { data: null, error: { message: 'Unauthorized' } }
 
+  const seedHost = new URL(parsed.data.seed_url).hostname
+  const productIntent = parsed.data.product_intent?.trim() || `Yupoo scrape: ${seedHost}`
+
   const { data, error } = await supabase
     .from('sourcing_missions')
     .insert({
       created_by: user.id,
-      product_intent: parsed.data.product_intent,
+      product_intent: productIntent,
       seed_url: parsed.data.seed_url,
       destination_context: parsed.data.destination_context ?? null,
-      constraints: parsed.data.constraints ?? {},
+      constraints: (parsed.data.constraints ?? {}) as Json,
       objective: 'speed',
       status: 'created',
     })
@@ -53,6 +58,30 @@ export async function updateSourcingMissionStatus(missionId: string, status: Sou
 
   if (error) return { data: null, error: { message: error.message } }
   revalidatePath('/workspace')
+  return { data, error: null }
+}
+
+export async function deleteSourcingMission(missionId: string) {
+  const parsed = DeleteSourcingMissionSchema.safeParse({ mission_id: missionId })
+  if (!parsed.success) return { data: null, error: { message: 'Invalid mission id.' } }
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { data: null, error: { message: 'Unauthorized' } }
+
+  const { data, error } = await supabase
+    .from('sourcing_missions')
+    .delete()
+    .eq('id', parsed.data.mission_id)
+    .select('id')
+    .single()
+
+  if (error) return { data: null, error: { message: error.message } }
+
+  revalidatePath('/workspace')
+  revalidatePath('/workspace/missions')
+  revalidatePath(`/missions/${parsed.data.mission_id}`)
+
   return { data, error: null }
 }
 

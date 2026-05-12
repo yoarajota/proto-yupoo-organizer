@@ -14,7 +14,10 @@ vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
 }))
 
-const { ingestInboundMessage, parseInboundOffers } = await import('./sourcing-inbound')
+const {
+  ingestInboundMessage,
+  executeInboundOfferParsingDirect: parseInboundOffers,
+} = await import('./sourcing-inbound')
 
 function makeMutatingChain(result = { error: null }) {
   const chain: Record<string, (...args: unknown[]) => unknown> = {}

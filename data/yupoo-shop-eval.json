@@ -1,0 +1,61 @@
+{
+  "max_requests": 24,
+  "shops": [
+    {
+      "id": "west42",
+      "url": "https://west42.x.yupoo.com/",
+      "expectations": {
+        "min_categories": 1
+      },
+      "notes": "User-provided baseline shop."
+    },
+    {
+      "id": "000-leo",
+      "url": "https://000-leo.x.yupoo.com/",
+      "expectations": {
+        "min_categories": 1
+      },
+      "notes": "User-provided baseline shop."
+    },
+    {
+      "id": "yolo66",
+      "url": "https://yolo66.x.yupoo.com/albums",
+      "expectations": {
+        "min_categories": 1
+      },
+      "notes": "User-provided baseline shop with albums seed URL."
+    },
+    {
+      "id": "tmf001",
+      "url": "https://tmf001.x.yupoo.com/albums",
+      "expectations": {
+        "min_categories": 1
+      },
+      "notes": "User-provided baseline shop with albums seed URL."
+    },
+    {
+      "id": "adam-factory",
+      "url": "https://adam-factory.x.yupoo.com/",
+      "expectations": {
+        "min_categories": 1
+      },
+      "notes": "User-provided baseline shop."
+    },
+    {
+      "id": "horizonlux",
+      "url": "https://horizonlux.x.yupoo.com/",
+      "expectations": {
+        "min_categories": 1
+      },
+      "notes": "User-provided baseline shop."
+    },
+    {
+      "id": "andyunion",
+      "url": "https://andyunion.x.yupoo.com/",
+      "expectations": {
+        "min_categories": 1
+      },
+      "notes": "User-provided baseline shop."
+    }
+  ]
+}

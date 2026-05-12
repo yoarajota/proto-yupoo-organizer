@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
-import { groupMissionCategoryReviewItems, type MissionRowType } from "@/lib/mission-category-review"
+import type { MissionRowType } from "@/lib/mission-category-review"
 import type { Database } from "@/types/database"
 import type { InquiryWithSupplier } from "@/components/organisms/InquiryRow"
 import type { SourceWithProfile } from "@/components/organisms/SourceRow"
@@ -70,6 +70,14 @@ type WorkspaceSearchParams = {
   productTypePage?: SearchParamValue
   productTypeQuery?: SearchParamValue
 }
+
+type WorkspaceDataSection =
+  | "missions"
+  | "catalog"
+  | "inquiries"
+  | "suppliers"
+  | "products"
+  | "sources"
 
 function getSingleSearchParam(value: SearchParamValue) {
   return Array.isArray(value) ? value[0] ?? "" : value ?? ""
@@ -239,11 +247,26 @@ async function getProductTypePageData(
 
 export async function getWorkspaceData(
   searchParams: WorkspaceSearchParams = {},
+  activeSection: WorkspaceDataSection = "missions",
 ): Promise<WorkspaceData> {
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
+
+  const needsCatalog = activeSection === "catalog" || activeSection === "suppliers"
+  const needsMissions = activeSection === "missions"
+  const needsInquiries = activeSection === "inquiries" || activeSection === "suppliers"
+  const needsSuppliers = activeSection === "suppliers"
+  const needsProducts = activeSection === "products"
+  const needsSources = activeSection === "sources"
+  const emptyCatalogPagination: CatalogPaginationState = {
+    query: "",
+    page: 1,
+    pageSize: 1,
+    totalItems: 0,
+    totalPages: 1,
+  }
 
   const [
     { data: profile },
@@ -254,7 +277,6 @@ export async function getWorkspaceData(
     { data: products },
     { data: sources },
     { data: missions },
-    { data: pendingCategoryReviews },
     brandPageData,
     productTypePageData,
   ] = await Promise.all([
@@ -265,40 +287,60 @@ export async function getWorkspaceData(
           .eq("id", user.id)
           .maybeSingle()
       : Promise.resolve({ data: null }),
-    supabase
+    needsInquiries
+      ? supabase
       .from("inquiries")
       .select("*, suppliers(name), products(notes, photo_hashes(storage_path, alt_text))")
       .not("status", "in", "('decided', 'ghosted')")
-      .order("created_at", { ascending: false }),
-    supabase
+      .order("created_at", { ascending: false })
+      : Promise.resolve({ data: [] }),
+    needsSuppliers
+      ? supabase
       .from("suppliers")
       .select("*, supplier_brands(brand_id, brand:brands(name)), supplier_product_types(product_type_id, product_type:product_types(name))")
-      .order("created_at", { ascending: false }),
-    supabase.from("inquiries").select("supplier_id, price").not("price", "is", null),
-    supabase
+      .order("created_at", { ascending: false })
+      : Promise.resolve({ data: [] }),
+    needsSuppliers
+      ? supabase.from("inquiries").select("supplier_id, price").not("price", "is", null)
+      : Promise.resolve({ data: [] }),
+    needsSuppliers
+      ? supabase
       .from("inquiries")
       .select("supplier_id, status")
-      .in("status", ["sent", "price_received", "negotiating"]),
-    supabase
+      .in("status", ["sent", "price_received", "negotiating"])
+      : Promise.resolve({ data: [] }),
+    needsProducts
+      ? supabase
       .from("products")
       .select("*, brands(name), product_types(name), photo_hashes(*, similarity_matches!source_photo_hash_id(is_dismissed))")
-      .order("created_at", { ascending: false }),
-    supabase
+      .order("created_at", { ascending: false })
+      : Promise.resolve({ data: [] }),
+    needsSources
+      ? supabase
       .from("sources")
       .select("*, profiles(role)")
-      .order("created_at", { ascending: false }),
-    supabase
+      .order("created_at", { ascending: false })
+      : Promise.resolve({ data: [] }),
+    needsMissions
+      ? supabase
       .from("sourcing_missions")
-      .select("id, product_intent, seed_url, destination_context, status, created_at")
-      .order("created_at", { ascending: false }),
-    supabase
-      .from("mission_category_classifications")
-      .select(
-        "mission_id, source_category_id, display_label, canonical_brand, canonical_product_type, classification_confidence, classification_method, classification_status, evidence, source_category:discovered_categories!mission_category_classifications_source_category_id_fkey(preview_image_urls, source_url)",
-      )
-      .eq("classification_status", "needs_review"),
-    getBrandPageData(searchParams),
-    getProductTypePageData(searchParams),
+      .select("id, product_intent, seed_url, destination_context, status, current_stage, queued_at, running_at, failed_at, attempt_count, last_error_message, last_error_code, created_at")
+      .order("created_at", { ascending: false })
+      : Promise.resolve({ data: [] }),
+    needsCatalog
+      ? getBrandPageData(searchParams)
+      : Promise.resolve({
+          brands: [],
+          summary: { totalBrands: 0, totalAliases: 0 },
+          pagination: emptyCatalogPagination,
+        }),
+    needsCatalog
+      ? getProductTypePageData(searchParams)
+      : Promise.resolve({
+          productTypes: [],
+          summary: { totalProductTypes: 0 },
+          pagination: emptyCatalogPagination,
+        }),
   ])
 
   const inquiryRows = (inquiries ?? []) as InquiryWithSupplier[]
@@ -329,22 +371,24 @@ export async function getWorkspaceData(
     }
   })
 
-  const reviewRows = (pendingCategoryReviews ?? []) as Parameters<
-    typeof groupMissionCategoryReviewItems
-  >[0]
-  const groupedReviewRows = groupMissionCategoryReviewItems(reviewRows)
-
   const missionRows = ((missions ?? []) as Array<{
     id: string
     product_intent: string
     seed_url: string
     destination_context: string | null
     status: string
+    current_stage: string | null
+    queued_at: string | null
+    running_at: string | null
+    failed_at: string | null
+    attempt_count: number
+    last_error_message: string | null
+    last_error_code: string | null
     created_at: string
   }>).map((mission) => ({
     ...mission,
-    pending_classifications_count: groupedReviewRows[mission.id]?.length ?? 0,
-    review_items: groupedReviewRows[mission.id] ?? [],
+    pending_classifications_count: 0,
+    review_items: [],
   })) as MissionRowType[]
 
   return {

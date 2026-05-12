@@ -20,7 +20,7 @@ vi.mock('next/cache', () => ({
 }))
 
 const {
-  runMissionCategoryClassification,
+  executeMissionCategoryClassificationDirect: runMissionCategoryClassification,
   reviewMissionCategoryClassification,
 } = await import('./sourcing-classification')
 
@@ -172,7 +172,7 @@ describe('runMissionCategoryClassification', () => {
         review_required_categories: 0,
         normalized_supplier_refs_updated: 1,
         pending_reviews_count: 0,
-        mission_status: 'matching',
+        mission_status: 'completed',
       },
       error: null,
     })
@@ -329,7 +329,7 @@ describe('reviewMissionCategoryClassification', () => {
         decision: 'accept',
         pending_reviews_count: 0,
         normalized_supplier_refs_updated: 1,
-        mission_status: 'matching',
+        mission_status: 'completed',
       },
       error: null,
     })

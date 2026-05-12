@@ -1,3 +1,5 @@
+// RUN WITH pnpm dlx tsx scripts/import-catalog.ts
+
 import { config as loadDotenv } from 'dotenv'
 import { createClient } from '@supabase/supabase-js'
 import {

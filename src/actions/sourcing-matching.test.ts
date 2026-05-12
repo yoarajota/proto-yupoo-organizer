@@ -14,7 +14,7 @@ vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
 }))
 
-const { runMissionMatching } = await import('./sourcing-matching')
+const { executeMissionMatchingDirect: runMissionMatching } = await import('./sourcing-matching')
 
 function makeMutatingChain(result = { error: null }) {
   const chain: Record<string, (...args: unknown[]) => unknown> = {}

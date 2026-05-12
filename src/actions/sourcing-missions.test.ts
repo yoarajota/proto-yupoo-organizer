@@ -1,13 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 function makeBuilder(terminalValue: unknown) {
-  const builder: Record<string, (...args: unknown[]) => unknown> = {}
+  const builder: Record<string, unknown> = {}
   const chainMethods = ['select', 'eq', 'insert', 'update', 'upsert', 'delete', 'order']
   chainMethods.forEach((method) => {
     builder[method] = () => builder
   })
   builder.single = () => Promise.resolve(terminalValue)
-  builder.then = undefined
   return builder
 }
 
@@ -28,6 +27,7 @@ vi.mock('next/cache', () => ({
 const {
   createSourcingMission,
   updateSourcingMissionStatus,
+  deleteSourcingMission,
   getSourcingMissionMetrics,
 } = await import('./sourcing-missions')
 
@@ -36,8 +36,8 @@ describe('createSourcingMission', () => {
     vi.clearAllMocks()
   })
 
-  it('returns validation error for empty product intent', async () => {
-    const result = await createSourcingMission({ product_intent: '' })
+  it('returns validation error for invalid seed URL', async () => {
+    const result = await createSourcingMission({ seed_url: 'not-a-url' })
 
     expect(result).toEqual({ data: null, error: { message: 'Invalid mission data.' } })
     expect(mockFrom).not.toHaveBeenCalled()
@@ -47,7 +47,6 @@ describe('createSourcingMission', () => {
     mockGetUser.mockResolvedValue({ data: { user: null } })
 
     const result = await createSourcingMission({
-      product_intent: 'women sneakers',
       seed_url: 'https://west42.x.yupoo.com/',
     })
 
@@ -65,7 +64,6 @@ describe('createSourcingMission', () => {
     mockFrom.mockReturnValueOnce(makeBuilder({ data: mission, error: null }))
 
     const result = await createSourcingMission({
-      product_intent: 'women sneakers',
       seed_url: 'https://west42.x.yupoo.com/',
     })
 
@@ -92,6 +90,37 @@ describe('updateSourcingMissionStatus', () => {
     const result = await updateSourcingMissionStatus('mission-1', 'matching')
 
     expect(result).toEqual({ data: updatedMission, error: null })
+  })
+})
+
+describe('deleteSourcingMission', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('returns validation error for invalid mission id', async () => {
+    const result = await deleteSourcingMission('mission-1')
+
+    expect(result).toEqual({ data: null, error: { message: 'Invalid mission id.' } })
+    expect(mockFrom).not.toHaveBeenCalled()
+  })
+
+  it('returns unauthorized when no user exists', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } })
+
+    const result = await deleteSourcingMission('9325489e-9a73-41c6-a583-d437074882d9')
+
+    expect(result).toEqual({ data: null, error: { message: 'Unauthorized' } })
+  })
+
+  it('deletes mission on success', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'user-1' } } })
+    const deletedMission = { id: '9325489e-9a73-41c6-a583-d437074882d9' }
+    mockFrom.mockReturnValueOnce(makeBuilder({ data: deletedMission, error: null }))
+
+    const result = await deleteSourcingMission('9325489e-9a73-41c6-a583-d437074882d9')
+
+    expect(result).toEqual({ data: deletedMission, error: null })
   })
 })
 

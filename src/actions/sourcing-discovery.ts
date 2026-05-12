@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { writeAgentRunArtifact } from '@/lib/agent-logs'
+import { enqueueMissionStage } from '@/lib/mission-queue'
 import { createClient } from '@/lib/supabase/server'
 import {
   RunMissionDiscoverySchema,
@@ -70,6 +71,28 @@ async function failMissionDiscovery(
 }
 
 export async function runMissionDiscovery(input: RunMissionDiscoveryValues) {
+  const parsed = RunMissionDiscoverySchema.safeParse(input)
+  if (!parsed.success) return { data: null, error: { message: 'Invalid discovery payload.' } }
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { data: null, error: { message: 'Unauthorized' } }
+
+  const result = await enqueueMissionStage(supabase, {
+    mission_id: parsed.data.mission_id,
+    stage: 'discovery',
+    payload: {
+      seed_url: parsed.data.seed_url,
+      html_snapshot: parsed.data.html_snapshot,
+      requested_by: user.id,
+    },
+  })
+
+  revalidatePath('/workspace')
+  return result
+}
+
+export async function executeMissionDiscoveryDirect(input: RunMissionDiscoveryValues) {
   const parsed = RunMissionDiscoverySchema.safeParse(input)
   if (!parsed.success) return { data: null, error: { message: 'Invalid discovery payload.' } }
 
@@ -161,6 +184,12 @@ export async function runMissionDiscovery(input: RunMissionDiscoveryValues) {
       used_html_snapshot: Boolean(parsed.data.html_snapshot),
       categories_count: discovered.categories.length,
       suppliers_count: discovered.suppliers.length,
+      categories_with_preview_images_count: discovered.categories.filter(
+        (category) => category.preview_image_urls.length > 0,
+      ).length,
+      categories_with_fetched_preview_status_count: discovered.categories.filter(
+        (category) => category.preview_image_status === 'fetched',
+      ).length,
       pages: discovered.pages,
       categories: discovered.categories,
       suppliers: discovered.suppliers,
@@ -250,7 +279,7 @@ export async function runMissionDiscovery(input: RunMissionDiscoveryValues) {
 
   const { error: missionAdvanceError } = await supabase
     .from('sourcing_missions')
-    .update({ status: 'classifying_categories' })
+    .update({ status: 'completed' })
     .eq('id', parsed.data.mission_id)
 
   if (missionAdvanceError) {
