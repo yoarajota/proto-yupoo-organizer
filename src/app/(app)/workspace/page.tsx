@@ -7,7 +7,8 @@ export default async function ActiveInquiriesPage({
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
-  const workspaceData = await getWorkspaceData(await searchParams, defaultWorkspaceSection)
+  const resolvedSearchParams = await searchParams
+  const workspaceData = await getWorkspaceData(resolvedSearchParams, defaultWorkspaceSection)
 
   return (
     <UnifiedWorkspace

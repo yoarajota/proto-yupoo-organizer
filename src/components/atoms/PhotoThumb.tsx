@@ -25,7 +25,7 @@ export function PhotoThumb({ src, alt, size = 'md', className, onClick }: PhotoT
       className={`relative overflow-hidden rounded min-w-[44px] min-h-[44px] ${sizeClasses[size]} ${className ?? ''}`}
       onClick={onClick}
     >
-      {error ? (
+      {error || !src ? (
         <div className="w-full h-full bg-surface-container-low flex items-center justify-center">
           <Camera className="text-muted-foreground" size={20} />
         </div>

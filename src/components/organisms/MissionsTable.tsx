@@ -285,7 +285,17 @@ function MissionRow({
   return (
     <TableRow className="group transition-colors hover:bg-muted/30">
       <TableCell className="align-top py-4">
-        <div className="max-w-xl">
+        <div className="max-w-xl space-y-3">
+          <div className="space-y-1">
+            <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-foreground">
+              {mission.product_intent}
+            </h3>
+            {mission.destination_context && (
+              <p className="line-clamp-2 text-xs leading-5 text-muted-foreground">
+                {mission.destination_context}
+              </p>
+            )}
+          </div>
           <MissionSourceLinks seedUrl={mission.seed_url} />
         </div>
       </TableCell>

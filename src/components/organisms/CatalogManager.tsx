@@ -46,7 +46,7 @@ type CatalogManagerProps = {
   searchState: CatalogSearchState
 }
 
-type CatalogSearchState = {
+export type CatalogSearchState = {
   brandQuery: string
   brandPage: number
   productTypeQuery: string

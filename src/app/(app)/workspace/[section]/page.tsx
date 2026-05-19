@@ -19,7 +19,8 @@ export default async function WorkspaceSectionPage({
     notFound()
   }
 
-  const workspaceData = await getWorkspaceData(await searchParams, section as WorkspaceSectionId)
+  const resolvedSearchParams = await searchParams
+  const workspaceData = await getWorkspaceData(resolvedSearchParams, section as WorkspaceSectionId)
 
   return (
     <UnifiedWorkspace

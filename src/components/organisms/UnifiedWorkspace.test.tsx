@@ -36,6 +36,7 @@ vi.mock("./SourcesTable", () => ({
 
 vi.mock("../ui/button", () => ({
   Button: ({ children }: { children: React.ReactNode }) => <button>{children}</button>,
+  buttonVariants: () => "button-variant",
 }))
 
 vi.mock("./MissionSheet", () => ({
@@ -87,8 +88,8 @@ describe("UnifiedWorkspace", () => {
       />,
     )
 
-    const missionsTab = screen.getByRole("link", { name: /missions autonomous sourcing agents/i })
-    const suppliersTab = screen.getByRole("link", { name: /suppliers contacts, trust notes, and brand coverage/i })
+    const missionsTab = screen.getByRole("link", { name: /step 1 missions .* autonomous sourcing agents/i })
+    const suppliersTab = screen.getByRole("link", { name: /step 3 suppliers .* contacts, trust notes, and brand coverage/i })
 
     expect(missionsTab).toHaveAttribute("href", "/workspace")
     expect(suppliersTab).toHaveAttribute("href", "/workspace/suppliers")

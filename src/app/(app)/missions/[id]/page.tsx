@@ -10,6 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { isUiPreviewMode } from "@/lib/preview"
 
 type MissionDiagnosticsPageProps = {
   params: Promise<{ id: string }>
@@ -108,6 +109,73 @@ export default async function MissionDiagnosticsPage({
   params,
 }: MissionDiagnosticsPageProps) {
   const { id } = await params
+
+  if (isUiPreviewMode()) {
+    return (
+      <div className="space-y-6 py-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="space-y-2">
+            <Link
+              href="/workspace"
+              className="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-widest text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Missions
+            </Link>
+            <h1 className="text-2xl font-heading tracking-tight text-foreground">
+              Scrape Diagnostics
+            </h1>
+            <p className="max-w-3xl text-sm text-muted-foreground">
+              Preview execution timeline and source diagnostics for {id}.
+            </p>
+          </div>
+          <Badge variant="destructive">failed_retrying</Badge>
+        </div>
+
+        <Card className="rounded-none border-border/70 shadow-none">
+          <CardHeader>
+            <CardTitle>Scrape Specification</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-3">
+            <DetailItem label="Seed URL" value="https://northgate.example.com/albums" />
+            <DetailItem label="Current stage" value="Retry scheduled" />
+            <DetailItem label="Attempt count" value={2} />
+            <DetailItem label="Runs" value={3} />
+            <DetailItem label="Events" value={14} />
+            <DetailItem label="Discovered" value="18 categories / 2 suppliers" />
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-none border-border/70 shadow-none">
+          <CardHeader>
+            <CardTitle>Last Error</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+              Source returned an empty album index.
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-none border-border/70 shadow-none">
+          <CardHeader>
+            <CardTitle>Execution Timeline</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ol className="space-y-3">
+              {["queued", "scanning", "failed", "retry scheduled"].map((event) => (
+                <li key={event} className="border border-border/70 bg-background p-4">
+                  <p className="text-sm font-semibold">{event}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">mission-worker / May 18, 2026</p>
+                </li>
+              ))}
+            </ol>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
   const supabase = await createClient()
   const {
     data: { user },

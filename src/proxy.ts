@@ -1,8 +1,13 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseServerUrl } from "@/lib/supabase/url";
+import { isUiPreviewMode } from "@/lib/preview";
 
 export async function proxy(request: NextRequest) {
+  if (isUiPreviewMode()) {
+    return NextResponse.next({ request });
+  }
+
   const isServerAction = request.method === "POST" && request.headers.has("next-action");
   let supabaseResponse = NextResponse.next({ request });
 

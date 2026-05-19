@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Camera } from "lucide-react";
+import { Camera, ImageIcon } from "lucide-react";
 import { PhotoThumb } from "@/components/atoms/PhotoThumb";
 import type { Database } from "@/types/database";
 import { cn } from "@/lib/utils";
@@ -33,6 +33,9 @@ export function ProductCard({ product, className }: ProductCardProps) {
   const hasMatches = product.photo_hashes.some((ph) =>
     ph.similarity_matches?.some((m) => !m.is_dismissed)
   );
+  const displayCode = (product.brands?.name ?? product.notes ?? "Reference")
+    .slice(0, 2)
+    .toUpperCase();
 
   return (
     <Link
@@ -40,7 +43,7 @@ export function ProductCard({ product, className }: ProductCardProps) {
       className={cn("group block perspective-1000", className)}
     >
       <div className="flex flex-col gap-4 transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:translate-y-[-4px]">
-        <div className="relative aspect-[3/4] overflow-hidden bg-muted/20">
+        <div className="relative aspect-[3/4] overflow-hidden border border-border/70 bg-surface-container-low">
           {hasMatches && (
             <div className="absolute top-4 left-4 z-10 px-2 py-1 bg-primary text-[8px] uppercase tracking-tighter font-bold text-background animate-pulse">
               Duplicate Found
@@ -54,8 +57,20 @@ export function ProductCard({ product, className }: ProductCardProps) {
               className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center border border-foreground/5">
-              <Camera className="text-muted-foreground/30" size={32} strokeWidth={1} />
+            <div className="flex h-full w-full flex-col justify-between bg-[linear-gradient(135deg,var(--surface-container-high)_0%,var(--surface-container-low)_42%,var(--background)_100%)] p-4">
+              <div className="flex items-center justify-between text-muted-foreground">
+                <ImageIcon size={18} strokeWidth={1.5} />
+                <span className="text-[9px] uppercase tracking-widest">Reference</span>
+              </div>
+              <div className="grid place-items-center">
+                <div className="grid h-20 w-20 place-items-center border border-foreground/15 bg-background/50 font-heading text-2xl text-foreground/80">
+                  {displayCode}
+                </div>
+              </div>
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Camera size={14} strokeWidth={1.5} />
+                <span className="text-[10px] uppercase tracking-widest">Awaiting photo</span>
+              </div>
             </div>
           )}
           <div className="absolute inset-0 bg-foreground/10 opacity-0 group-hover:opacity-100 transition-opacity duration-700 mix-blend-multiply" />
