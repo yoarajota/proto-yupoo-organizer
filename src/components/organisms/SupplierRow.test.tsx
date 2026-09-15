@@ -25,7 +25,6 @@ type SupplierRowType = Database["public"]["Tables"]["suppliers"]["Row"]
 const baseSupplier: SupplierRowType = {
   id: "s1",
   name: "Nike Supplier",
-  brands: ["Nike", "Adidas"],
   is_flagged: false,
   yupoo_url: "https://supplier.yupoo.com",
   whatsapp_contact: "+5511999999999",
@@ -45,7 +44,18 @@ describe("SupplierRow", () => {
   })
 
   it("renders a BrandTagChip for each brand", () => {
-    render(<SupplierRow supplier={baseSupplier} activeInquiryCount={0} />)
+    render(
+      <SupplierRow
+        supplier={{
+          ...baseSupplier,
+          supplier_brands: [
+            { brand_id: "b1", brand: { name: "Nike" } },
+            { brand_id: "b2", brand: { name: "Adidas" } },
+          ],
+        }}
+        activeInquiryCount={0}
+      />,
+    )
     expect(screen.getByText("Nike")).toBeInTheDocument()
     expect(screen.getByText("Adidas")).toBeInTheDocument()
   })
@@ -82,7 +92,7 @@ describe("SupplierRow", () => {
 
   it("renders active inquiry count when count > 0", () => {
     render(<SupplierRow supplier={baseSupplier} activeInquiryCount={3} />)
-    expect(screen.getByText("3 active")).toBeInTheDocument()
+    expect(screen.getByText("3 Active Threads")).toBeInTheDocument()
   })
 
   it("does NOT render active count label when count is 0", () => {

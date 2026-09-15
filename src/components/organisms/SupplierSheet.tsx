@@ -5,7 +5,7 @@ import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { SupplierSchema, type SupplierFormValues } from "@/lib/schemas/supplier"
 import { createSupplier, updateSupplier } from "@/actions/suppliers"
-import { BrandTagInput } from "@/components/molecules/BrandTagInput"
+import { CatalogCheckboxGroup } from "@/components/molecules/CatalogCheckboxGroup"
 import {
   Sheet,
   SheetTrigger,
@@ -15,16 +15,29 @@ import {
   SheetFooter,
 } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
+import type { CatalogOption } from "@/lib/catalog"
+import type { SupplierBrandLink, SupplierProductTypeLink } from "@/lib/supplier-catalog"
 import type { Database } from "@/types/database"
 
 type SupplierRow = Database["public"]["Tables"]["suppliers"]["Row"]
-
-interface SupplierSheetProps {
-  supplier?: SupplierRow
-  trigger: React.ReactNode
+type SupplierWithCatalogLinks = SupplierRow & {
+  supplier_brands?: SupplierBrandLink[]
+  supplier_product_types?: SupplierProductTypeLink[]
 }
 
-export function SupplierSheet({ supplier, trigger }: SupplierSheetProps) {
+interface SupplierSheetProps {
+  supplier?: SupplierWithCatalogLinks
+  trigger: React.ReactNode
+  brands?: CatalogOption[]
+  productTypes?: CatalogOption[]
+}
+
+export function SupplierSheet({
+  supplier,
+  trigger,
+  brands = [],
+  productTypes = [],
+}: SupplierSheetProps) {
   const [open, setOpen] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -43,7 +56,9 @@ export function SupplierSheet({ supplier, trigger }: SupplierSheetProps) {
           name: supplier.name,
           yupoo_url: supplier.yupoo_url,
           whatsapp_contact: supplier.whatsapp_contact,
-          brands: supplier.brands,
+          brand_ids: supplier.supplier_brands?.map((item) => item.brand_id) ?? [],
+          product_type_ids:
+            supplier.supplier_product_types?.map((item) => item.product_type_id) ?? [],
           trust_notes: supplier.trust_notes ?? undefined,
           is_flagged: supplier.is_flagged,
           red_flag_source: supplier.red_flag_source ?? undefined,
@@ -51,7 +66,8 @@ export function SupplierSheet({ supplier, trigger }: SupplierSheetProps) {
           negotiation_final_price: supplier.negotiation_final_price ?? undefined,
         }
       : {
-          brands: [],
+          brand_ids: [],
+          product_type_ids: [],
           is_flagged: false,
         },
   })
@@ -130,12 +146,33 @@ export function SupplierSheet({ supplier, trigger }: SupplierSheetProps) {
           </div>
 
           <div className="flex flex-col gap-1">
-            <label className="text-label-sm font-medium">Brand Tags</label>
             <Controller
-              name="brands"
+              name="brand_ids"
               control={control}
               render={({ field }) => (
-                <BrandTagInput value={field.value ?? []} onChange={field.onChange} />
+                <CatalogCheckboxGroup
+                  label="Brands"
+                  options={brands}
+                  value={field.value ?? []}
+                  onChange={field.onChange}
+                  emptyMessage="Register brands in Settings before linking them."
+                />
+              )}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <Controller
+              name="product_type_ids"
+              control={control}
+              render={({ field }) => (
+                <CatalogCheckboxGroup
+                  label="Product Types"
+                  options={productTypes}
+                  value={field.value ?? []}
+                  onChange={field.onChange}
+                  emptyMessage="Register product types in Settings before linking them."
+                />
               )}
             />
           </div>

@@ -1,0 +1,7 @@
+.git
+.next
+node_modules
+storage
+*.tsbuildinfo
+.env.local
+supabase/.env.local

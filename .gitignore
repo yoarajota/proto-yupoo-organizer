@@ -1,7 +1,7 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # scripts
-scripts/
+scripts/create-admin-user.ts
 
 # dependencies
 /node_modules
@@ -32,9 +32,10 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+/storage/
 
 # env files (can opt-in for committing if needed)
-.env*
+.env.local
 
 # vercel
 .vercel
@@ -42,3 +43,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# agent/runtime output
+.claude/_output/*
+.agent/
+.codex/
+.codex
+.playwright-cli/
+storage/agent-logs/
+.ui-review/

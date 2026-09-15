@@ -27,7 +27,11 @@ describe('ProductNotesForm', () => {
     fireEvent.click(saveButton)
 
     await waitFor(() => {
-      expect(updateProduct).toHaveBeenCalledWith('abc', { notes: 'existing note' })
+      expect(updateProduct).toHaveBeenCalledWith('abc', {
+        notes: 'existing note',
+        brand_id: null,
+        product_type_id: null,
+      })
     })
   })
 

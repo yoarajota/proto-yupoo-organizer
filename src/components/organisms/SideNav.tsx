@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutGrid, Settings } from "lucide-react";
+import { ClipboardCheck, LayoutDashboard, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -11,7 +11,8 @@ import {
 } from "@/components/ui/tooltip";
 
 const navItems = [
-  { href: "/workspace", label: "Workspace", icon: LayoutGrid },
+  { href: "/workspace", label: "Workspace", icon: LayoutDashboard },
+  { href: "/workspace/review", label: "Review", icon: ClipboardCheck },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -25,7 +26,8 @@ interface NavItemProps {
 function NavItem({ href, label, icon: Icon, collapsed }: NavItemProps) {
   const pathname = usePathname();
   const isWorkspaceRoute =
-    pathname.startsWith("/workspace") ||
+    (pathname.startsWith("/workspace") &&
+      !pathname.startsWith("/workspace/review")) ||
     pathname.startsWith("/suppliers") ||
     pathname.startsWith("/products") ||
     pathname.startsWith("/sources");
@@ -36,10 +38,10 @@ function NavItem({ href, label, icon: Icon, collapsed }: NavItemProps) {
     <Link
       href={href}
       className={cn(
-        "flex items-center gap-3 px-6 py-3 transition-all duration-300 group relative",
+        "group relative flex items-center gap-3 px-4 py-3 transition-all duration-300 lg:px-5",
         isActive
-          ? "text-foreground"
-          : "text-muted-foreground/60 hover:text-foreground"
+          ? "bg-surface-container-low text-foreground"
+          : "text-muted-foreground hover:bg-surface-container-lowest hover:text-foreground"
       )}
     >
       <Icon className={cn(
@@ -48,14 +50,14 @@ function NavItem({ href, label, icon: Icon, collapsed }: NavItemProps) {
       )} />
       {!collapsed && (
         <span className={cn(
-          "text-xs font-medium tracking-wide uppercase",
+          "text-xs font-semibold tracking-wide uppercase",
           isActive ? "opacity-100" : "opacity-80 group-hover:opacity-100"
         )}>
           {label}
         </span>
       )}
       {isActive && (
-        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-primary rounded-full shadow-[0_0_8px_var(--primary)]" />
+        <span className="absolute left-0 top-2 bottom-2 w-1 bg-primary" />
       )}
     </Link>
   );
@@ -64,7 +66,7 @@ function NavItem({ href, label, icon: Icon, collapsed }: NavItemProps) {
     return (
       <Tooltip>
         <TooltipTrigger>{linkContent}</TooltipTrigger>
-        <TooltipContent side="right" className="bg-foreground text-background border-none rounded-none text-[10px] uppercase tracking-widest px-3 py-1.5">
+        <TooltipContent side="right" className="rounded-none border-none bg-foreground px-3 py-1.5 text-[10px] uppercase tracking-widest text-background">
           {label}
         </TooltipContent>
       </Tooltip>
@@ -81,9 +83,16 @@ interface SideNavProps {
 export default function SideNav({ collapsed = false }: SideNavProps) {
   return (
     <nav
-      className="flex flex-col gap-2 py-8 bg-background h-full border-r border-border/40"
+      className="flex h-full flex-col gap-5 border-r border-border/70 bg-background/90 px-3 py-5"
       aria-label="Main navigation"
     >
+      {!collapsed && (
+        <div className="px-2 pb-2">
+          <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+            Buyer flow
+          </p>
+        </div>
+      )}
       <div className="flex flex-col gap-1">
         {navItems.map((item) => (
           <NavItem key={item.href} {...item} collapsed={collapsed} />

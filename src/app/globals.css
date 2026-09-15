@@ -66,41 +66,43 @@
 }
 
 :root {
-  /* Terminal Palette - Light Mode */
-  --background: hsl(0, 0%, 100%);
-  --foreground: hsl(240, 10%, 4%);
+  --background: hsl(42, 24%, 97%);
+  --foreground: hsl(210, 16%, 10%);
   --card: hsl(0, 0%, 100%);
-  --card-foreground: hsl(240, 10%, 4%);
+  --card-foreground: hsl(210, 16%, 10%);
   --popover: hsl(0, 0%, 100%);
-  --popover-foreground: hsl(240, 10%, 4%);
+  --popover-foreground: hsl(210, 16%, 10%);
 
-  /* Neon Green/Emerald Primary */
-  --primary: hsl(142, 71%, 45%);
-  --primary-foreground: hsl(240, 10%, 4%);
+  --primary: hsl(157, 54%, 30%);
+  --primary-foreground: hsl(40, 33%, 96%);
 
-  --secondary: hsl(240, 5%, 96%);
-  --secondary-foreground: hsl(240, 10%, 4%);
-  --muted: hsl(240, 5%, 96%);
-  --muted-foreground: hsl(240, 5%, 45%);
-  --accent: hsl(240, 5%, 96%);
-  --accent-foreground: hsl(240, 10%, 4%);
+  --secondary: hsl(36, 18%, 90%);
+  --secondary-foreground: hsl(210, 16%, 10%);
+  --muted: hsl(38, 16%, 91%);
+  --muted-foreground: hsl(215, 9%, 42%);
+  --accent: hsl(199, 30%, 88%);
+  --accent-foreground: hsl(210, 16%, 10%);
   --destructive: hsl(0, 84%, 60%);
   --destructive-foreground: hsl(0, 0%, 100%);
 
-  --border: hsl(240, 6%, 90%);
-  --input: hsl(240, 6%, 90%);
-  --ring: hsl(142, 71%, 45%);
+  --border: hsl(38, 16%, 82%);
+  --input: hsl(38, 16%, 82%);
+  --ring: hsl(157, 54%, 30%);
 
-  --radius: 0rem;
+  --surface-container-lowest: hsl(40, 33%, 95%);
+  --surface-container-low: hsl(39, 24%, 92%);
+  --surface-container-high: hsl(200, 22%, 88%);
 
-  --sidebar: hsl(0, 0%, 100%);
-  --sidebar-foreground: hsl(240, 10%, 4%);
-  --sidebar-primary: hsl(142, 71%, 45%);
-  --sidebar-primary-foreground: hsl(0, 0%, 100%);
-  --sidebar-accent: hsl(240, 5%, 96%);
-  --sidebar-accent-foreground: hsl(240, 10%, 4%);
-  --sidebar-border: hsl(240, 6%, 90%);
-  --sidebar-ring: hsl(142, 71%, 45%);
+  --radius: 0.25rem;
+
+  --sidebar: hsl(42, 24%, 97%);
+  --sidebar-foreground: hsl(210, 16%, 10%);
+  --sidebar-primary: hsl(157, 54%, 30%);
+  --sidebar-primary-foreground: hsl(40, 33%, 96%);
+  --sidebar-accent: hsl(39, 24%, 92%);
+  --sidebar-accent-foreground: hsl(210, 16%, 10%);
+  --sidebar-border: hsl(38, 16%, 82%);
+  --sidebar-ring: hsl(157, 54%, 30%);
 }
 
 .dark {
@@ -127,6 +129,10 @@
   --border: hsl(240, 4%, 16%);
   --input: hsl(240, 4%, 16%);
   --ring: hsl(142, 71%, 45%);
+
+  --surface-container-lowest: hsl(240, 8%, 7%);
+  --surface-container-low: hsl(240, 6%, 11%);
+  --surface-container-high: hsl(240, 5%, 18%);
 
   --sidebar: hsl(240, 10%, 4%);
   --sidebar-foreground: hsl(0, 0%, 100%);

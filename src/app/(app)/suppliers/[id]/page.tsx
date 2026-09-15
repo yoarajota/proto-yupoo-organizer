@@ -8,7 +8,9 @@ import { SupplierSheet } from "@/components/organisms/SupplierSheet"
 import { InquiryTable } from "@/components/organisms/InquiryTable"
 import { getInquiriesBySupplier } from "@/actions/inquiries"
 import { Button } from "@/components/ui/button"
+import { getSupplierBrandNames, getSupplierProductTypeNames } from "@/lib/supplier-catalog"
 import type { InquiryWithSupplier } from "@/components/organisms/InquiryRow"
+import { isUiPreviewMode } from "@/lib/preview"
 
 export default async function SupplierDetailPage({
   params,
@@ -16,17 +18,85 @@ export default async function SupplierDetailPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
+
+  if (isUiPreviewMode()) {
+    return (
+      <DetailTemplate
+        breadcrumb={
+          <>
+            <Link href="/workspace/suppliers" className="text-muted-foreground hover:text-foreground">
+              Suppliers
+            </Link>
+            <span className="text-muted-foreground mx-1">/</span>
+            <span>Preview</span>
+          </>
+        }
+        title={id === "supplier-atelier-02" ? "Pearl Market Desk" : "West42 Atelier"}
+        sideContent={
+          <div className="border border-border/70 bg-surface-container-low p-5">
+            <p className="text-[10px] uppercase tracking-[0.24em] text-muted-foreground">
+              Trust intelligence
+            </p>
+            <p className="mt-3 text-3xl font-heading">92</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Strong source evidence, active inquiry context, and consistent album hygiene.
+            </p>
+          </div>
+        }
+      >
+        <div className="space-y-6">
+          <section className="grid gap-3 md:grid-cols-3">
+            <div className="border border-border/70 bg-background p-4">
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Active threads</p>
+              <p className="mt-2 text-2xl font-heading">3</p>
+            </div>
+            <div className="border border-border/70 bg-background p-4">
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Price band</p>
+              <p className="mt-2 text-2xl font-heading">R$ 128-R$ 188</p>
+            </div>
+            <div className="border border-border/70 bg-background p-4">
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Evidence sources</p>
+              <p className="mt-2 text-2xl font-heading">2</p>
+            </div>
+          </section>
+
+          <section className="border border-border/70 bg-surface-container-low p-5">
+            <p className="text-[10px] uppercase tracking-[0.24em] text-muted-foreground">Supplier profile</p>
+            <a className="mt-3 block text-sm text-primary" href="https://west42.x.yupoo.com">https://west42.x.yupoo.com</a>
+            <p className="mt-3 text-sm text-muted-foreground">+86 138 0000 0142</p>
+            <div className="mt-4">
+              <BrandTagGroup brands={["Prada", "Miu Miu", "Bags"]} />
+            </div>
+          </section>
+
+          <section className="space-y-3">
+            <h2 className="text-xl font-heading">Linked Inquiries</h2>
+            <div className="border border-border/70 bg-background p-5 text-sm text-muted-foreground">
+              Waiting on interior stamp and hardware close-up for the city tote reference.
+            </div>
+          </section>
+        </div>
+      </DetailTemplate>
+    )
+  }
+
   const supabase = await createClient()
   const { data: supplier } = await supabase
     .from("suppliers")
-    .select("*")
+    .select("*, supplier_brands(brand_id, brand:brands(name)), supplier_product_types(product_type_id, product_type:product_types(name))")
     .eq("id", id)
     .single()
 
   if (!supplier) notFound()
 
-  const { data: inquiries } = await getInquiriesBySupplier(id)
+  const [{ data: inquiries }, { data: brands }, { data: productTypes }] = await Promise.all([
+    getInquiriesBySupplier(id),
+    supabase.from("brands").select("id, name").order("name"),
+    supabase.from("product_types").select("id, name").order("name"),
+  ])
   const typedInquiries = (inquiries || []) as InquiryWithSupplier[]
+  const linkedBrands = getSupplierBrandNames(supplier)
+  const linkedProductTypes = getSupplierProductTypeNames(supplier)
 
   return (
     <DetailTemplate
@@ -65,18 +135,29 @@ export default async function SupplierDetailPage({
             <p className="text-body-sm">{supplier.whatsapp_contact}</p>
           </div>
 
-          {supplier.brands && supplier.brands.length > 0 && (
+          {linkedBrands.length > 0 && (
             <div className="flex flex-col gap-1">
               <p className="text-label-sm font-medium text-muted-foreground uppercase tracking-widest">
                 Brands
               </p>
-              <BrandTagGroup brands={supplier.brands} />
+              <BrandTagGroup brands={linkedBrands} />
+            </div>
+          )}
+
+          {linkedProductTypes.length > 0 && (
+            <div className="flex flex-col gap-1">
+              <p className="text-label-sm font-medium text-muted-foreground uppercase tracking-widest">
+                Product Types
+              </p>
+              <BrandTagGroup brands={linkedProductTypes} />
             </div>
           )}
 
           <div>
             <SupplierSheet
               supplier={supplier}
+              brands={brands ?? []}
+              productTypes={productTypes ?? []}
               trigger={
                 <Button variant="outline" size="sm">
                   Edit Supplier

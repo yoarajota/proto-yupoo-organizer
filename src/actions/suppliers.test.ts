@@ -37,7 +37,6 @@ describe("createSupplier", () => {
       name: "",
       yupoo_url: "https://example.com",
       whatsapp_contact: "123",
-      brands: [],
       is_flagged: false,
     })
 
@@ -50,7 +49,6 @@ describe("createSupplier", () => {
       name: "Supplier A",
       yupoo_url: "not-a-url",
       whatsapp_contact: "123",
-      brands: [],
       is_flagged: false,
     })
 
@@ -64,7 +62,6 @@ describe("createSupplier", () => {
       name: "Supplier A",
       yupoo_url: "https://example.yupoo.com",
       whatsapp_contact: "+5511999999",
-      brands: [],
       is_flagged: false,
     })
 
@@ -80,7 +77,6 @@ describe("createSupplier", () => {
       name: "Supplier A",
       yupoo_url: "https://example.yupoo.com",
       whatsapp_contact: "+5511999999",
-      brands: [],
       is_flagged: false,
     })
 
@@ -95,7 +91,6 @@ describe("createSupplier", () => {
       name: "Supplier A",
       yupoo_url: "https://example.yupoo.com",
       whatsapp_contact: "+5511999999",
-      brands: [],
       is_flagged: false,
     })
 
@@ -110,7 +105,6 @@ describe("createSupplier", () => {
       name: "Supplier B",
       yupoo_url: "https://supplier.yupoo.com",
       whatsapp_contact: "+5511888888",
-      brands: ["Nike"],
       is_flagged: false,
     })
 
@@ -129,7 +123,6 @@ describe("updateSupplier", () => {
       name: "",
       yupoo_url: "https://example.yupoo.com",
       whatsapp_contact: "123",
-      brands: [],
       is_flagged: false,
     })
 
@@ -143,7 +136,6 @@ describe("updateSupplier", () => {
       name: "Supplier A",
       yupoo_url: "https://example.yupoo.com",
       whatsapp_contact: "+5511999999",
-      brands: [],
       is_flagged: false,
     })
 
@@ -159,7 +151,6 @@ describe("updateSupplier", () => {
       name: "Updated",
       yupoo_url: "https://example.yupoo.com",
       whatsapp_contact: "+5511999999",
-      brands: [],
       is_flagged: false,
     })
 

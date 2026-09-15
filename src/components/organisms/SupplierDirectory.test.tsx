@@ -22,7 +22,7 @@ import { SupplierDirectory, type SupplierWithStats } from "./SupplierDirectory"
 const makeSupplier = (overrides: Partial<SupplierWithStats> & { id: string; name: string }): SupplierWithStats => ({
   id: overrides.id,
   name: overrides.name,
-  brands: overrides.brands ?? [],
+  supplier_brands: overrides.supplier_brands ?? [],
   is_flagged: overrides.is_flagged ?? false,
   yupoo_url: "https://supplier.yupoo.com",
   whatsapp_contact: "+5511999999999",
@@ -38,9 +38,27 @@ const makeSupplier = (overrides: Partial<SupplierWithStats> & { id: string; name
 })
 
 const suppliers: SupplierWithStats[] = [
-  makeSupplier({ id: "s1", name: "Nike Store", brands: ["Nike", "Jordan"] }),
-  makeSupplier({ id: "s2", name: "Adidas Hub", brands: ["Adidas"] }),
-  makeSupplier({ id: "s3", name: "Multi Brand", brands: ["Nike", "Adidas"] }),
+  makeSupplier({
+    id: "s1",
+    name: "Nike Store",
+    supplier_brands: [
+      { brand_id: "b1", brand: { name: "Nike" } },
+      { brand_id: "b2", brand: { name: "Jordan" } },
+    ],
+  }),
+  makeSupplier({
+    id: "s2",
+    name: "Adidas Hub",
+    supplier_brands: [{ brand_id: "b3", brand: { name: "Adidas" } }],
+  }),
+  makeSupplier({
+    id: "s3",
+    name: "Multi Brand",
+    supplier_brands: [
+      { brand_id: "b1", brand: { name: "Nike" } },
+      { brand_id: "b3", brand: { name: "Adidas" } },
+    ],
+  }),
 ]
 
 const allBrands = ["Adidas", "Jordan", "Nike"]

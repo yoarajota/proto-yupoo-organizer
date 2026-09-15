@@ -10,7 +10,7 @@ vi.mock("next/navigation", () => ({
 function renderAppShell(children: React.ReactNode = <div>Test content</div>) {
   return render(
     <TooltipProvider>
-      <AppShell>{children}</AppShell>
+      <AppShell topBar={<div>Yupoo Organizer</div>}>{children}</AppShell>
     </TooltipProvider>
   );
 }

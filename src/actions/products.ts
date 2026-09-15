@@ -2,6 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import {
+  requestPHashComputation,
+  retryPendingPhotoHashes as retryPendingPhotoHashesWithClient,
+} from "@/lib/yupoo/yupoo-images";
 import type { ProductUpdateValues } from "@/lib/schemas/product";
 
 export async function createProduct(storagePath: string, altText: string) {
@@ -31,6 +35,8 @@ export async function createProduct(storagePath: string, altText: string) {
       storage_path: storagePath,
       alt_text: altText,
       created_by: user.id,
+      download_status: "downloaded",
+      phash_status: "pending",
     })
     .select()
     .single();
@@ -40,15 +46,9 @@ export async function createProduct(storagePath: string, altText: string) {
     return { data: null, error: { message: hashError.message } };
   }
 
-  // Trigger pHash computation (non-blocking)
-  fetch(`${process.env.NEXT_PUBLIC_APP_URL || ""}/api/phash`, {
-    method: "POST",
-    body: JSON.stringify({
-      storagePath: hash.storage_path,
-      photoHashId: hash.id,
-    }),
-    keepalive: true,
-  }).catch((err) => console.error("Failed to trigger pHash computation:", err));
+  // Best-effort pHash trigger: the row stays pending and is recovered by
+  // retryPendingPhotoHashes when the trigger cannot run.
+  void requestPHashComputation(hash.storage_path, hash.id);
 
   revalidatePath("/workspace");
   return { data: { product, hash }, error: null };
@@ -72,6 +72,8 @@ export async function addProductPhoto(
       storage_path: storagePath,
       alt_text: altText,
       created_by: user.id,
+      download_status: "downloaded",
+      phash_status: "pending",
     })
     .select()
     .single();
@@ -81,15 +83,9 @@ export async function addProductPhoto(
     return { data: null, error: { message: hashError.message } };
   }
 
-  // Trigger pHash computation (non-blocking)
-  fetch(`${process.env.NEXT_PUBLIC_APP_URL || ""}/api/phash`, {
-    method: "POST",
-    body: JSON.stringify({
-      storagePath: hash.storage_path,
-      photoHashId: hash.id,
-    }),
-    keepalive: true,
-  }).catch((err) => console.error("Failed to trigger pHash computation:", err));
+  // Best-effort pHash trigger: the row stays pending and is recovered by
+  // retryPendingPhotoHashes when the trigger cannot run.
+  void requestPHashComputation(hash.storage_path, hash.id);
 
   revalidatePath("/workspace");
   revalidatePath(`/products/${productId}`);
@@ -106,9 +102,15 @@ export async function updateProduct(
   } = await supabase.auth.getUser();
   if (!user) return { data: null, error: { message: "Unauthorized" } };
 
+  const updateValues: ProductUpdateValues = { notes: values.notes };
+  if ("brand_id" in values) updateValues.brand_id = values.brand_id ?? null;
+  if ("product_type_id" in values) {
+    updateValues.product_type_id = values.product_type_id ?? null;
+  }
+
   const { data, error } = await supabase
     .from("products")
-    .update({ notes: values.notes })
+    .update(updateValues)
     .eq("id", productId)
     .select()
     .single();
@@ -125,6 +127,72 @@ export async function updateProduct(
   revalidatePath("/workspace");
   revalidatePath(`/products/${productId}`);
   return { data, error: null };
+}
+
+export async function retryPendingPhotoHashes(input?: {
+  missionId?: string;
+  limit?: number;
+}) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { data: null, error: { message: "Unauthorized" } };
+
+  try {
+    const data = await retryPendingPhotoHashesWithClient(supabase, {
+      missionId: input?.missionId,
+      limit: input?.limit,
+    });
+    return { data, error: null };
+  } catch (error) {
+    return {
+      data: null,
+      error: {
+        message:
+          error instanceof Error ? error.message : "Photo hash retry failed",
+      },
+    };
+  }
+}
+
+export async function getPhotoHashStatus(photoHashId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { data: null, error: { message: "Unauthorized" } };
+
+  const { data: row, error } = await supabase
+    .from("photo_hashes")
+    .select("id, phash, phash_status")
+    .eq("id", photoHashId)
+    .single();
+
+  if (error || !row) {
+    return {
+      data: null,
+      error: { message: error?.message ?? "Photo not found" },
+    };
+  }
+
+  const { count, error: matchError } = await supabase
+    .from("similarity_matches")
+    .select("id", { count: "exact", head: true })
+    .eq("source_photo_hash_id", photoHashId)
+    .eq("is_dismissed", false);
+
+  if (matchError) {
+    return { data: null, error: { message: matchError.message } };
+  }
+
+  return {
+    data: {
+      phash_status: row.phash_status ?? (row.phash ? "hashed" : "pending"),
+      match_count: count ?? 0,
+    },
+    error: null,
+  };
 }
 
 export async function getSimilarityMatches(productId: string) {

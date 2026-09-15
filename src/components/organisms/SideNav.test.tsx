@@ -45,12 +45,23 @@ describe("SideNav", () => {
       expect(settingsLink).toHaveClass("text-foreground");
     });
 
+    it("marks Review active without also marking Workspace active", () => {
+      mockUsePathname.mockReturnValue("/workspace/review");
+      renderSideNav();
+
+      const reviewLink = screen.getByRole("link", { name: /review/i });
+      const workspaceLink = screen.getByRole("link", { name: /workspace/i });
+
+      expect(reviewLink).toHaveClass("text-foreground");
+      expect(workspaceLink).toHaveClass("text-muted-foreground");
+    });
+
     it("inactive item keeps muted foreground styling", () => {
       mockUsePathname.mockReturnValue("/workspace");
       renderSideNav();
 
       const settingsLink = screen.getByRole("link", { name: /settings/i });
-      expect(settingsLink).toHaveClass("text-muted-foreground/60");
+      expect(settingsLink).toHaveClass("text-muted-foreground");
     });
   });
 
@@ -67,13 +78,13 @@ describe("SideNav", () => {
       });
     });
 
-    it("collapsed mode renders 2 navigation links (via anchors)", () => {
+    it("collapsed mode renders 3 navigation links (via anchors)", () => {
       mockUsePathname.mockReturnValue("/workspace");
       const { container } = renderSideNav({ collapsed: true });
 
       const nav = container.querySelector("nav");
       const anchors = nav!.querySelectorAll("a");
-      expect(anchors).toHaveLength(2);
+      expect(anchors).toHaveLength(3);
     });
 
     it("collapsed: workspace remains active in /products route", () => {
@@ -95,11 +106,12 @@ describe("SideNav", () => {
       expect(within(workspaceLink).getByText("Workspace")).toBeInTheDocument();
     });
 
-    it("renders workspace and settings links", () => {
+    it("renders workspace, review, and settings links", () => {
       mockUsePathname.mockReturnValue("/settings");
       renderSideNav();
 
       expect(screen.getByRole("link", { name: /workspace/i })).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: /review/i })).toBeInTheDocument();
       expect(screen.getByRole("link", { name: /settings/i })).toBeInTheDocument();
     });
   });

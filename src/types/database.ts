@@ -96,30 +96,39 @@ export type Database = {
         Row: {
           alt_text: string
           created_at: string
-          created_by: string
+          created_by: string | null
+          download_status: string
           id: string
+          mission_id: string | null
           phash: string | null
-          product_id: string
+          phash_status: string
+          product_id: string | null
           storage_path: string
           updated_at: string
         }
         Insert: {
           alt_text?: string
           created_at?: string
-          created_by: string
+          created_by?: string | null
+          download_status?: string
           id?: string
+          mission_id?: string | null
           phash?: string | null
-          product_id: string
+          phash_status?: string
+          product_id?: string | null
           storage_path: string
           updated_at?: string
         }
         Update: {
           alt_text?: string
           created_at?: string
-          created_by?: string
+          created_by?: string | null
+          download_status?: string
           id?: string
+          mission_id?: string | null
           phash?: string | null
-          product_id?: string
+          phash_status?: string
+          product_id?: string | null
           storage_path?: string
           updated_at?: string
         }
@@ -138,36 +147,418 @@ export type Database = {
             referencedRelation: "products"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "photo_hashes_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "sourcing_missions"
+            referencedColumns: ["id"]
+          },
         ]
       }
-      products: {
+      brands: {
         Row: {
           created_at: string
-          created_by: string
           id: string
-          notes: string | null
+          name: string
+          slug: string
           updated_at: string
         }
         Insert: {
           created_at?: string
-          created_by: string
           id?: string
-          notes?: string | null
+          name: string
+          slug: string
           updated_at?: string
         }
         Update: {
           created_at?: string
-          created_by?: string
           id?: string
-          notes?: string | null
+          name?: string
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      brand_aliases: {
+        Row: {
+          alias: string
+          brand_id: string
+          created_at: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          alias: string
+          brand_id: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          alias?: string
+          brand_id?: string
+          created_at?: string
+          id?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "brand_aliases_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      catalog_embeddings: {
+        Row: {
+          brand_alias_id: string | null
+          brand_id: string | null
+          created_at: string
+          embedding: string
+          entity_ref: string
+          entity_type: string
+          id: string
+          product_type_id: string | null
+          source_hash: string
+          source_text: string
+          updated_at: string
+        }
+        Insert: {
+          brand_alias_id?: string | null
+          brand_id?: string | null
+          created_at?: string
+          embedding: string
+          entity_ref?: string
+          entity_type: string
+          id?: string
+          product_type_id?: string | null
+          source_hash: string
+          source_text: string
+          updated_at?: string
+        }
+        Update: {
+          brand_alias_id?: string | null
+          brand_id?: string | null
+          created_at?: string
+          embedding?: string
+          entity_ref?: string
+          entity_type?: string
+          id?: string
+          product_type_id?: string | null
+          source_hash?: string
+          source_text?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_embeddings_brand_alias_id_fkey"
+            columns: ["brand_alias_id"]
+            isOneToOne: false
+            referencedRelation: "brand_aliases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_embeddings_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_embeddings_product_type_id_fkey"
+            columns: ["product_type_id"]
+            isOneToOne: false
+            referencedRelation: "product_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_types: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      products: {
+        Row: {
+          brand_id: string | null
+          created_at: string
+          created_by: string
+          id: string
+          notes: string | null
+          product_type_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          brand_id?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          notes?: string | null
+          product_type_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          notes?: string | null
+          product_type_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "products_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "products_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_product_type_id_fkey"
+            columns: ["product_type_id"]
+            isOneToOne: false
+            referencedRelation: "product_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      discovered_categories: {
+        Row: {
+          brand_signal: string | null
+          category_path: string[]
+          classification_confidence: number | null
+          classification_method: string | null
+          classification_status: string
+          confidence: number
+          created_at: string
+          extracted_at: string
+          id: string
+          mission_id: string
+          normalized_label: string | null
+          preview_image_urls: string[]
+          product_signal: string | null
+          raw_label: string
+          source_url: string
+        }
+        Insert: {
+          brand_signal?: string | null
+          category_path: string[]
+          classification_confidence?: number | null
+          classification_method?: string | null
+          classification_status?: string
+          confidence?: number
+          created_at?: string
+          extracted_at?: string
+          id?: string
+          mission_id: string
+          normalized_label?: string | null
+          preview_image_urls?: string[]
+          product_signal?: string | null
+          raw_label?: string
+          source_url: string
+        }
+        Update: {
+          brand_signal?: string | null
+          category_path?: string[]
+          classification_confidence?: number | null
+          classification_method?: string | null
+          classification_status?: string
+          confidence?: number
+          created_at?: string
+          extracted_at?: string
+          id?: string
+          mission_id?: string
+          normalized_label?: string | null
+          preview_image_urls?: string[]
+          product_signal?: string | null
+          raw_label?: string
+          source_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "discovered_categories_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "sourcing_missions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      discovered_suppliers: {
+        Row: {
+          category_refs: string[]
+          confidence: number
+          created_at: string
+          id: string
+          last_seen_at: string
+          mission_id: string
+          normalized_category_refs: string[]
+          source_url: string
+          supplier_key: string
+          updated_at: string
+        }
+        Insert: {
+          category_refs?: string[]
+          confidence?: number
+          created_at?: string
+          id?: string
+          last_seen_at?: string
+          mission_id: string
+          normalized_category_refs?: string[]
+          source_url: string
+          supplier_key: string
+          updated_at?: string
+        }
+        Update: {
+          category_refs?: string[]
+          confidence?: number
+          created_at?: string
+          id?: string
+          last_seen_at?: string
+          mission_id?: string
+          normalized_category_refs?: string[]
+          source_url?: string
+          supplier_key?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "discovered_suppliers_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "sourcing_missions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mission_category_classifications: {
+        Row: {
+          canonical_brand: string | null
+          canonical_product_type: string | null
+          classification_confidence: number | null
+          classification_method: string
+          classification_status: string
+          created_at: string
+          display_label: string
+          evidence: Json
+          id: string
+          mission_id: string
+          source_category_id: string
+          updated_at: string
+        }
+        Insert: {
+          canonical_brand?: string | null
+          canonical_product_type?: string | null
+          classification_confidence?: number | null
+          classification_method: string
+          classification_status: string
+          created_at?: string
+          display_label: string
+          evidence?: Json
+          id?: string
+          mission_id: string
+          source_category_id: string
+          updated_at?: string
+        }
+        Update: {
+          canonical_brand?: string | null
+          canonical_product_type?: string | null
+          classification_confidence?: number | null
+          classification_method?: string
+          classification_status?: string
+          created_at?: string
+          display_label?: string
+          evidence?: Json
+          id?: string
+          mission_id?: string
+          source_category_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mission_category_classifications_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "sourcing_missions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mission_category_classifications_source_category_id_fkey"
+            columns: ["source_category_id"]
+            isOneToOne: false
+            referencedRelation: "discovered_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mission_supplier_matches: {
+        Row: {
+          created_at: string
+          id: string
+          mission_id: string
+          rank_reasons: Json
+          rank_score: number
+          supplier_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          mission_id: string
+          rank_reasons?: Json
+          rank_score: number
+          supplier_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          mission_id?: string
+          rank_reasons?: Json
+          rank_score?: number
+          supplier_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mission_supplier_matches_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "sourcing_missions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mission_supplier_matches_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "discovered_suppliers"
             referencedColumns: ["id"]
           },
         ]
@@ -241,6 +632,220 @@ export type Database = {
           },
         ]
       }
+      sourcing_mission_stage_metrics: {
+        Row: {
+          created_at: string
+          duration_ms: number | null
+          finished_at: string | null
+          id: string
+          mission_id: string
+          stage_name: string
+          started_at: string
+        }
+        Insert: {
+          created_at?: string
+          finished_at?: string | null
+          id?: string
+          mission_id: string
+          stage_name: string
+          started_at: string
+        }
+        Update: {
+          created_at?: string
+          finished_at?: string | null
+          id?: string
+          mission_id?: string
+          stage_name?: string
+          started_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sourcing_mission_stage_metrics_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "sourcing_missions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sourcing_mission_runs: {
+        Row: {
+          attempt_number: number
+          created_at: string
+          diagnostics: Json
+          error_code: string | null
+          error_message: string | null
+          finished_at: string | null
+          id: string
+          mission_id: string
+          queue_message_id: string | null
+          queued_at: string | null
+          stage_name: string
+          started_at: string | null
+          status: string
+        }
+        Insert: {
+          attempt_number?: number
+          created_at?: string
+          diagnostics?: Json
+          error_code?: string | null
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          mission_id: string
+          queue_message_id?: string | null
+          queued_at?: string | null
+          stage_name: string
+          started_at?: string | null
+          status: string
+        }
+        Update: {
+          attempt_number?: number
+          created_at?: string
+          diagnostics?: Json
+          error_code?: string | null
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          mission_id?: string
+          queue_message_id?: string | null
+          queued_at?: string | null
+          stage_name?: string
+          started_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sourcing_mission_runs_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "sourcing_missions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sourcing_mission_stage_events: {
+        Row: {
+          created_at: string
+          diagnostics: Json
+          event_name: string
+          id: string
+          mission_id: string
+          run_id: string | null
+          stage_name: string
+        }
+        Insert: {
+          created_at?: string
+          diagnostics?: Json
+          event_name: string
+          id?: string
+          mission_id: string
+          run_id?: string | null
+          stage_name: string
+        }
+        Update: {
+          created_at?: string
+          diagnostics?: Json
+          event_name?: string
+          id?: string
+          mission_id?: string
+          run_id?: string | null
+          stage_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sourcing_mission_stage_events_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "sourcing_missions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sourcing_mission_stage_events_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "sourcing_mission_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sourcing_missions: {
+        Row: {
+          constraints: Json
+          created_at: string
+          created_by: string
+          current_stage: string | null
+          destination_context: string | null
+          attempt_count: number
+          failed_at: string | null
+          first_suggestion_batch_at: string | null
+          first_valid_quote_at: string | null
+          id: string
+          last_error_code: string | null
+          last_error_message: string | null
+          last_queue_message_id: string | null
+          objective: string
+          product_intent: string
+          queued_at: string | null
+          running_at: string | null
+          seed_url: string
+          status: Database["public"]["Enums"]["sourcing_mission_status"]
+          updated_at: string
+        }
+        Insert: {
+          constraints?: Json
+          created_at?: string
+          created_by: string
+          current_stage?: string | null
+          destination_context?: string | null
+          attempt_count?: number
+          failed_at?: string | null
+          first_suggestion_batch_at?: string | null
+          first_valid_quote_at?: string | null
+          id?: string
+          last_error_code?: string | null
+          last_error_message?: string | null
+          last_queue_message_id?: string | null
+          objective?: string
+          product_intent: string
+          queued_at?: string | null
+          running_at?: string | null
+          seed_url: string
+          status?: Database["public"]["Enums"]["sourcing_mission_status"]
+          updated_at?: string
+        }
+        Update: {
+          constraints?: Json
+          created_at?: string
+          created_by?: string
+          current_stage?: string | null
+          destination_context?: string | null
+          attempt_count?: number
+          failed_at?: string | null
+          first_suggestion_batch_at?: string | null
+          first_valid_quote_at?: string | null
+          id?: string
+          last_error_code?: string | null
+          last_error_message?: string | null
+          last_queue_message_id?: string | null
+          objective?: string
+          product_intent?: string
+          queued_at?: string | null
+          running_at?: string | null
+          seed_url?: string
+          status?: Database["public"]["Enums"]["sourcing_mission_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sourcing_missions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sources: {
         Row: {
           brands: string[] | null
@@ -287,7 +892,6 @@ export type Database = {
       }
       suppliers: {
         Row: {
-          brands: string[]
           created_at: string
           created_by: string
           id: string
@@ -302,7 +906,6 @@ export type Database = {
           yupoo_url: string
         }
         Insert: {
-          brands?: string[]
           created_at?: string
           created_by: string
           id?: string
@@ -317,7 +920,6 @@ export type Database = {
           yupoo_url: string
         }
         Update: {
-          brands?: string[]
           created_at?: string
           created_by?: string
           id?: string
@@ -341,12 +943,94 @@ export type Database = {
           },
         ]
       }
+      supplier_brands: {
+        Row: {
+          brand_id: string
+          created_at: string
+          supplier_id: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          supplier_id: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          supplier_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_brands_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_brands_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_product_types: {
+        Row: {
+          created_at: string
+          product_type_id: string
+          supplier_id: string
+        }
+        Insert: {
+          created_at?: string
+          product_type_id: string
+          supplier_id: string
+        }
+        Update: {
+          created_at?: string
+          product_type_id?: string
+          supplier_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_product_types_product_type_id_fkey"
+            columns: ["product_type_id"]
+            isOneToOne: false
+            referencedRelation: "product_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_product_types_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
       is_admin: { Args: never; Returns: boolean }
+      match_catalog_embeddings: {
+        Args: {
+          entity_types?: string[]
+          match_count?: number
+          match_threshold?: number
+          query_embedding: string
+        }
+        Returns: {
+          canonical_name: string
+          canonical_slug: string
+          entity_id: string
+          entity_type: string
+          similarity: number
+          source_text: string
+        }[]
+      }
     }
     Enums: {
       inquiry_status:
@@ -356,6 +1040,25 @@ export type Database = {
         | "decided"
         | "ghosted"
       platform_type: "reddit" | "discord" | "whatsapp" | "other"
+      sourcing_mission_status:
+        | "created"
+        | "discovery_queued"
+        | "scanning"
+        | "classification_queued"
+        | "classifying_categories"
+        | "matching_queued"
+        | "matching"
+        | "suggestions_ready"
+        | "outreach_queued"
+        | "awaiting_approval"
+        | "approved_for_outreach"
+        | "replies_received"
+        | "parse_queued"
+        | "offers_normalized"
+        | "completed"
+        | "blocked_needs_input"
+        | "failed_retrying"
+        | "failed_terminal"
       user_role: "admin" | "member"
     }
     CompositeTypes: {
@@ -495,8 +1198,27 @@ export const Constants = {
         "ghosted",
       ],
       platform_type: ["reddit", "discord", "whatsapp", "other"],
+      sourcing_mission_status: [
+        "created",
+        "discovery_queued",
+        "scanning",
+        "classification_queued",
+        "classifying_categories",
+        "matching_queued",
+        "matching",
+        "suggestions_ready",
+        "outreach_queued",
+        "awaiting_approval",
+        "approved_for_outreach",
+        "replies_received",
+        "parse_queued",
+        "offers_normalized",
+        "completed",
+        "blocked_needs_input",
+        "failed_retrying",
+        "failed_terminal",
+      ],
       user_role: ["admin", "member"],
     },
   },
 } as const
-
