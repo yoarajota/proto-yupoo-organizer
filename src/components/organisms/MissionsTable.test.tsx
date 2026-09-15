@@ -4,12 +4,15 @@ import type { ButtonHTMLAttributes } from "react";
 
 const mockedActions = vi.hoisted(() => ({
   runMissionDiscovery: vi.fn(),
+  runMissionDiscoveryWithFallback: vi.fn(),
   runMissionCategoryClassification: vi.fn(),
+  runMissionCategoryClassificationWithFallback: vi.fn(),
   deleteSourcingMission: vi.fn(),
 }));
 
 vi.mock("@/actions/sourcing-discovery", () => ({
   runMissionDiscovery: mockedActions.runMissionDiscovery,
+  runMissionDiscoveryWithFallback: mockedActions.runMissionDiscoveryWithFallback,
 }));
 
 vi.mock("@/actions/sourcing-missions", () => ({
@@ -18,6 +21,7 @@ vi.mock("@/actions/sourcing-missions", () => ({
 
 vi.mock("@/actions/sourcing-classification", () => ({
   runMissionCategoryClassification: mockedActions.runMissionCategoryClassification,
+  runMissionCategoryClassificationWithFallback: mockedActions.runMissionCategoryClassificationWithFallback,
 }));
 
 vi.mock("@/components/ui/button", () => ({
@@ -48,64 +52,111 @@ function makeMission(overrides: Partial<MissionRowType> = {}): MissionRowType {
 describe("MissionsTable", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockedActions.runMissionDiscovery.mockResolvedValue({ data: null, error: null });
+    mockedActions.runMissionDiscoveryWithFallback.mockResolvedValue({ data: null, error: null });
+    mockedActions.runMissionCategoryClassification.mockResolvedValue({ data: null, error: null });
+    mockedActions.runMissionCategoryClassificationWithFallback.mockResolvedValue({ data: null, error: null });
   });
 
   it("renders scrape missions with source links", () => {
     render(<MissionsTable missions={[makeMission()]} />);
 
-    expect(screen.getByText("west42.x.yupoo.com")).toBeInTheDocument();
-    expect(screen.getByText("Ready")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /shop root/i })).toHaveAttribute(
+    expect(screen.getAllByText("west42.x.yupoo.com").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Ready to scrape").length).toBeGreaterThan(0);
+    const [shopRootLink] = screen.getAllByRole("link", { name: /shop root/i });
+    expect(shopRootLink).toHaveAttribute(
       "href",
       "https://west42.x.yupoo.com/",
     );
-    expect(screen.getByRole("link", { name: /seed url/i })).toHaveAttribute(
+    const [seedLink] = screen.getAllByRole("link", { name: /seed url/i });
+    expect(seedLink).toHaveAttribute(
       "href",
       "https://west42.x.yupoo.com/albums/123?uid=1",
     );
-    expect(screen.getByRole("link", { name: /categories/i })).toHaveAttribute(
+    const [categoriesLink] = screen.getAllByRole("link", { name: /categories/i });
+    expect(categoriesLink).toHaveAttribute(
       "href",
       "https://west42.x.yupoo.com/categories",
     );
-    expect(screen.getByRole("link", { name: /albums/i })).toHaveAttribute(
+    const [albumsLink] = screen.getAllByRole("link", { name: /albums/i });
+    expect(albumsLink).toHaveAttribute(
       "href",
       "https://west42.x.yupoo.com/albums",
     );
   });
 
   it("runs only the scrape action before a scrape completes", async () => {
-    mockedActions.runMissionDiscovery.mockResolvedValueOnce({ data: null, error: null });
+    mockedActions.runMissionDiscoveryWithFallback.mockResolvedValueOnce({ data: null, error: null });
 
     render(<MissionsTable missions={[makeMission()]} />);
 
-    fireEvent.click(screen.getByRole("button", { name: /run scrape/i }));
+    const [runButton] = screen.getAllByRole("button", { name: /run scrape/i });
+    fireEvent.click(runButton);
 
     await waitFor(() => {
-      expect(mockedActions.runMissionDiscovery).toHaveBeenCalledWith({ mission_id: "mission-1" });
+      expect(mockedActions.runMissionDiscoveryWithFallback).toHaveBeenCalledWith({ mission_id: "mission-1" });
     });
+    expect(mockedActions.runMissionDiscovery).not.toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: /run classification/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /run matching/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /generate outreach/i })).not.toBeInTheDocument();
   });
 
   it("runs classification after a scrape completes", async () => {
-    mockedActions.runMissionCategoryClassification.mockResolvedValueOnce({ data: null, error: null });
+    mockedActions.runMissionCategoryClassificationWithFallback.mockResolvedValueOnce({ data: null, error: null });
 
     render(<MissionsTable missions={[makeMission({ status: "completed" })]} />);
 
-    fireEvent.click(screen.getByRole("button", { name: /run classification/i }));
+    const [runButton] = screen.getAllByRole("button", { name: /run classification/i });
+    fireEvent.click(runButton);
 
     await waitFor(() => {
-      expect(mockedActions.runMissionCategoryClassification).toHaveBeenCalledWith({ mission_id: "mission-1" });
+      expect(mockedActions.runMissionCategoryClassificationWithFallback).toHaveBeenCalledWith({ mission_id: "mission-1" });
     });
+    expect(mockedActions.runMissionCategoryClassification).not.toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: /run matching/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /generate outreach/i })).not.toBeInTheDocument();
+  });
+
+  it("ignores a second scrape click while a run is in flight", async () => {
+    let release!: (value: unknown) => void;
+    mockedActions.runMissionDiscoveryWithFallback.mockReturnValueOnce(
+      new Promise((resolve) => {
+        release = resolve;
+      }),
+    );
+
+    render(<MissionsTable missions={[makeMission()]} />);
+
+    const [runButton] = screen.getAllByRole("button", { name: /run scrape/i });
+    fireEvent.click(runButton);
+    fireEvent.click(runButton);
+    release({ data: null, error: null });
+
+    await waitFor(() => {
+      expect(mockedActions.runMissionDiscoveryWithFallback).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("surfaces a scrape-cause error without worker-config text", async () => {
+    mockedActions.runMissionDiscoveryWithFallback.mockResolvedValueOnce({
+      data: null,
+      error: { message: "Every Yupoo discovery request failed." },
+    });
+
+    render(<MissionsTable missions={[makeMission()]} />);
+
+    const [runButton] = screen.getAllByRole("button", { name: /run scrape/i });
+    fireEvent.click(runButton);
+
+    await screen.findByText(/every request to the yupoo shop failed/i);
+    expect(screen.queryByText(/MISSION_WORKER_URL|MISSION_WORKER_TOKEN/i)).not.toBeInTheDocument();
   });
 
   it("falls back to the raw seed URL when source parsing fails", () => {
     render(<MissionsTable missions={[makeMission({ seed_url: "not a valid url" })]} />);
 
-    expect(screen.getByText("not a valid url")).toBeInTheDocument();
+    expect(screen.getAllByText("not a valid url").length).toBeGreaterThan(0);
     expect(screen.queryByRole("link", { name: /shop root/i })).not.toBeInTheDocument();
   });
 
@@ -115,12 +166,14 @@ describe("MissionsTable", () => {
 
     render(<MissionsTable missions={[makeMission()]} isAdmin />);
 
-    expect(screen.getByRole("link", { name: /diagnostics/i })).toHaveAttribute(
+    const [diagnosticsLink] = screen.getAllByRole("link", { name: /diagnostics/i });
+    expect(diagnosticsLink).toHaveAttribute(
       "href",
       "/missions/mission-1",
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /delete mission/i }));
+    const [deleteButton] = screen.getAllByRole("button", { name: /delete mission/i });
+    fireEvent.click(deleteButton);
 
     await waitFor(() => {
       expect(mockedActions.deleteSourcingMission).toHaveBeenCalledWith("mission-1");

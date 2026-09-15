@@ -3,17 +3,17 @@ import {
   CANONICAL_PRODUCTS,
   type CanonicalBrand,
   type CanonicalProduct,
-} from '@/lib/yupoo/category-config'
+} from './category-config.ts'
 import type {
   ClassificationMethod,
   ClassificationStatus,
-} from '@/lib/schemas/sourcing-classification'
+} from '../schemas/sourcing-classification.ts'
 import {
   CATALOG_EMBEDDING_BRAND_THRESHOLD,
   CATALOG_EMBEDDING_PRODUCT_THRESHOLD,
   cleanCatalogEmbeddingText,
   type CatalogEmbeddingMatch,
-} from '@/lib/catalog-embeddings'
+} from '../catalog-embeddings.ts'
 
 export type ClassifiedCategory = {
   normalized_label: string
@@ -67,11 +67,17 @@ function tokenize(input: string) {
 
 function buildAliasMap<T extends { canonical: string; aliases: string[] }>(entries: T[]) {
   const map = new Map<string, string>()
+  const setOnce = (key: string, canonical: string) => {
+    if (!key) return
+    if (!map.has(key)) map.set(key, canonical)
+  }
   entries.forEach((entry) => {
-    map.set(cleanupCategoryText(entry.canonical), entry.canonical)
+    setOnce(cleanupCategoryText(entry.canonical), entry.canonical)
     entry.aliases.forEach((alias) => {
-      map.set(cleanupCategoryText(alias), entry.canonical)
-      map.set(cleanupCategoryText(alias).replace(/\s+/g, ''), entry.canonical)
+      const cleanedAlias = cleanupCategoryText(alias)
+      if (!cleanedAlias) return
+      setOnce(cleanedAlias, entry.canonical)
+      setOnce(cleanedAlias.replace(/\s+/g, ''), entry.canonical)
     })
   })
   return map
@@ -94,8 +100,9 @@ function findAliasMatchDetailed<T extends CanonicalBrand | CanonicalProduct>(
   entries: T[],
   aliasMap: Map<string, string>,
 ): AliasMatch<T['canonical']> | null {
+  if (!cleaned) return null
   const compact = cleaned.replace(/\s+/g, '')
-  const direct = aliasMap.get(cleaned) ?? aliasMap.get(compact)
+  const direct = aliasMap.get(cleaned) ?? (compact ? aliasMap.get(compact) : undefined)
 
   if (direct) {
     return {
@@ -105,19 +112,29 @@ function findAliasMatchDetailed<T extends CanonicalBrand | CanonicalProduct>(
     }
   }
 
+  let best: AliasMatch<T['canonical']> | null = null
+  const tokens = new Set(cleaned.split(/\s+/).filter(Boolean))
   for (const entry of entries) {
-    const candidates = [entry.canonical, ...entry.aliases].map(cleanupCategoryText)
-    const matchedAlias = candidates.find((candidate) => cleaned.includes(candidate))
-    if (matchedAlias) {
-      return {
-        canonical: entry.canonical as T['canonical'],
-        matched_alias: matchedAlias,
-        match_type: 'contains',
+    const candidates = [entry.canonical, ...entry.aliases]
+      .map(cleanupCategoryText)
+      .filter(Boolean)
+    for (const candidate of candidates) {
+      if (!cleaned.includes(candidate)) continue
+      // Short aliases surface as substrings of unrelated words ("pa" in
+      // "company", "tb" in "montbell"), so they only match whole tokens.
+      const compactCandidate = candidate.replace(/\s+/g, '')
+      if (compactCandidate.length <= 2 && !tokens.has(candidate) && !tokens.has(compactCandidate)) continue
+      if (!best || candidate.length > best.matched_alias.length) {
+        best = {
+          canonical: entry.canonical as T['canonical'],
+          matched_alias: candidate,
+          match_type: 'contains',
+        }
       }
     }
   }
 
-  return null
+  return best
 }
 
 function findAliasMatch(
@@ -197,11 +214,103 @@ export function extractIntentSignals(
     productSignals.push(inlineProductSignal)
   }
 
+  for (const entry of productEntries) {
+    if (productSignals.includes(entry.canonical)) continue
+    const multiWordHit = [entry.canonical, ...entry.aliases]
+      .map(cleanupCategoryText)
+      .some((candidate) => candidate.includes(' ') && cleaned.includes(candidate))
+    if (multiWordHit) productSignals.push(entry.canonical)
+  }
+
   return {
     normalized_label: cleaned,
     brand_signal: brandSignal,
     product_signals: productSignals,
   }
+}
+
+export type ReviewDecisionInput = {
+  raw_label: string
+  decision: 'accept' | 'edit' | 'reject'
+  brand_signal: string | null
+}
+
+export type MinedAliasCandidate = {
+  variant: string
+  canonical: string
+  score: number
+  evidence: {
+    observations: number
+    approvals: number
+    rejections: number
+    cleaned_variant: string
+    source: 'review_consensus'
+  }
+}
+
+export function mineCandidateAliases(
+  rawLabels: string[],
+  reviewDecisions: ReviewDecisionInput[],
+  brandEntries: CanonicalBrand[] = CANONICAL_BRANDS,
+): MinedAliasCandidate[] {
+  const knownRawForms = new Set<string>()
+  brandEntries.forEach((entry) => {
+    knownRawForms.add(entry.canonical.toLowerCase())
+    knownRawForms.add(entry.display.toLowerCase())
+    entry.aliases.forEach((alias) => knownRawForms.add(alias.toLowerCase()))
+  })
+
+  const observations = new Map<string, number>()
+  rawLabels.forEach((rawLabel) => {
+    const variant = rawLabel.trim()
+    if (!variant) return
+    observations.set(variant, (observations.get(variant) ?? 0) + 1)
+  })
+
+  const approvalsByVariant = new Map<string, string[]>()
+  const rejectionsByVariant = new Map<string, number>()
+  reviewDecisions.forEach((decision) => {
+    const variant = decision.raw_label.trim()
+    if (!variant) return
+    if (decision.decision === 'reject' || !decision.brand_signal) {
+      rejectionsByVariant.set(variant, (rejectionsByVariant.get(variant) ?? 0) + 1)
+      return
+    }
+    const approvals = approvalsByVariant.get(variant) ?? []
+    approvals.push(decision.brand_signal)
+    approvalsByVariant.set(variant, approvals)
+  })
+
+  const candidates: MinedAliasCandidate[] = []
+  approvalsByVariant.forEach((approvals, variant) => {
+    if (knownRawForms.has(variant.toLowerCase())) return
+    const rejections = rejectionsByVariant.get(variant) ?? 0
+    if (approvals.length <= rejections) return
+
+    const votes = new Map<string, number>()
+    approvals.forEach((canonical) => votes.set(canonical, (votes.get(canonical) ?? 0) + 1))
+    const canonical = Array.from(votes.entries()).sort(
+      (left, right) => right[1] - left[1] || (left[0] < right[0] ? -1 : 1),
+    )[0][0]
+    const approvalCount = votes.get(canonical) ?? approvals.length
+
+    candidates.push({
+      variant,
+      canonical,
+      score: approvalCount * 2 + (observations.get(variant) ?? 0) - rejections,
+      evidence: {
+        observations: observations.get(variant) ?? 0,
+        approvals: approvalCount,
+        rejections,
+        cleaned_variant: cleanupCategoryText(variant),
+        source: 'review_consensus',
+      },
+    })
+  })
+
+  return candidates.sort(
+    (left, right) => right.score - left.score || (left.variant < right.variant ? -1 : 1),
+  )
 }
 
 export function classifyDiscoveredCategory(input: {
@@ -228,8 +337,9 @@ export function classifyDiscoveredCategory(input: {
   let productConfidence = productSignal ? 0.95 : 0
   let embeddingBrandMatch: CatalogEmbeddingMatch | null = null
   let embeddingProductMatch: CatalogEmbeddingMatch | null = null
+  const embeddingEligible = normalizedLabel.replace(/\s+/g, '').length > 3
 
-  if (!brandSignal) {
+  if (!brandSignal && embeddingEligible) {
     const embedded = input.context?.embedding_brand_match ?? null
     if (
       embedded?.similarity &&
@@ -242,7 +352,7 @@ export function classifyDiscoveredCategory(input: {
     }
   }
 
-  if (!productSignal) {
+  if (!productSignal && embeddingEligible) {
     const embeddedProduct = input.context?.embedding_product_match ?? null
     if (
       embeddedProduct?.similarity &&

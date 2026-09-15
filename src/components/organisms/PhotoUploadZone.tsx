@@ -1,18 +1,31 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Upload, CheckCircle, AlertCircle } from 'lucide-react'
+import { Upload, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { createProduct, addProductPhoto } from '@/actions/products'
+import { createProduct, addProductPhoto, getPhotoHashStatus } from '@/actions/products'
 
 type FileStatus = 'uploading' | 'done' | 'error'
+type HashStatus = 'pending' | 'hashed' | 'matched' | 'error'
+
+const HASH_STATUS_LABEL: Record<HashStatus, string> = {
+  pending: 'Similarity check pending…',
+  hashed: 'Hashed · no close matches',
+  matched: 'Close match found',
+  error: 'Similarity check failed',
+}
+
+const HASH_POLL_ATTEMPTS = 5
+const HASH_POLL_DELAY_MS = 750
 
 interface FileState {
   name: string
   progress: number
   status: FileStatus
   error?: string
+  hashId?: string
+  hashStatus?: HashStatus
 }
 
 interface PhotoUploadZoneProps {
@@ -23,16 +36,43 @@ interface PhotoUploadZoneProps {
 export function PhotoUploadZone({ onUploadComplete, productId }: PhotoUploadZoneProps) {
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
+  const mountedRef = useRef(true)
   const [fileStates, setFileStates] = useState<Map<string, FileState>>(new Map())
   const [isDragOver, setIsDragOver] = useState(false)
 
+  useEffect(() => {
+    mountedRef.current = true
+    return () => { mountedRef.current = false }
+  }, [])
+
   function updateFile(fileId: string, update: Partial<FileState>) {
+    if (!mountedRef.current) return
     setFileStates(prev => {
       const next = new Map(prev)
       const entry = next.get(fileId)
       if (entry) next.set(fileId, { ...entry, ...update })
       return next
     })
+  }
+
+  async function pollPhotoHashStatus(fileId: string, hashId: string, attempt = 1): Promise<void> {
+    const result = await getPhotoHashStatus(hashId)
+    if (!mountedRef.current) return
+    if (result.error || result.data?.phash_status === 'failed') {
+      updateFile(fileId, { hashStatus: 'error' })
+      return
+    }
+    if ((result.data?.match_count ?? 0) > 0) {
+      updateFile(fileId, { hashStatus: 'matched' })
+      return
+    }
+    if (result.data?.phash_status === 'hashed') {
+      updateFile(fileId, { hashStatus: 'hashed' })
+      return
+    }
+    if (attempt >= HASH_POLL_ATTEMPTS) return
+    await new Promise(resolve => setTimeout(resolve, HASH_POLL_DELAY_MS))
+    await pollPhotoHashStatus(fileId, hashId, attempt + 1)
   }
 
   async function uploadFile(file: File) {
@@ -65,7 +105,16 @@ export function PhotoUploadZone({ onUploadComplete, productId }: PhotoUploadZone
       return
     }
 
-    updateFile(fileId, { status: 'done', progress: 100 })
+    const hashId = productId
+      ? (result.data as { id?: string } | null)?.id
+      : (result.data as { hash?: { id?: string } } | null)?.hash?.id
+    updateFile(fileId, {
+      status: 'done',
+      progress: 100,
+      hashId,
+      hashStatus: hashId ? 'pending' : undefined,
+    })
+    if (hashId) void pollPhotoHashStatus(fileId, hashId)
   }
 
   async function handleFiles(files: FileList | null) {
@@ -134,6 +183,15 @@ export function PhotoUploadZone({ onUploadComplete, productId }: PhotoUploadZone
                 )}
                 {state.status === 'error' && state.error && (
                   <p className="text-label-xs text-error">{state.error}</p>
+                )}
+                {state.status === 'done' && state.hashStatus && (
+                  <p className="text-label-xs text-muted-foreground flex items-center gap-1">
+                    {state.hashStatus === 'pending' && <Loader2 size={12} className="animate-spin shrink-0" />}
+                    {state.hashStatus === 'hashed' && <CheckCircle size={12} className="text-primary shrink-0" />}
+                    {state.hashStatus === 'matched' && <CheckCircle size={12} className="text-primary shrink-0" />}
+                    {state.hashStatus === 'error' && <AlertCircle size={12} className="text-error shrink-0" />}
+                    {HASH_STATUS_LABEL[state.hashStatus]}
+                  </p>
                 )}
               </div>
             </div>

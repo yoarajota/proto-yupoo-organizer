@@ -23,6 +23,11 @@ export const ReviewMissionCategoryClassificationSchema = z.object({
   product: z.string().trim().optional(),
 })
 
+export const RollupCategoryStrategySchema = z.object({
+  mission_id: z.string().uuid(),
+  mission_ids: z.array(z.string().uuid()).max(20).optional(),
+})
+
 export type ClassificationStatus = z.infer<typeof ClassificationStatusSchema>
 export type ClassificationMethod = z.infer<typeof ClassificationMethodSchema>
 export type RunMissionCategoryClassificationValues = z.infer<
@@ -31,3 +36,4 @@ export type RunMissionCategoryClassificationValues = z.infer<
 export type ReviewMissionCategoryClassificationValues = z.infer<
   typeof ReviewMissionCategoryClassificationSchema
 >
+export type RollupCategoryStrategyValues = z.infer<typeof RollupCategoryStrategySchema>

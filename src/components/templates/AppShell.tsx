@@ -17,7 +17,7 @@ function BottomTabBar() {
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-40 h-16 border-t border-border/70 bg-background/95 px-2 backdrop-blur-xl md:hidden"
+      className="fixed bottom-0 left-0 right-0 z-40 flex h-16 items-stretch border-t border-border/70 bg-background/95 px-2 backdrop-blur-xl md:hidden"
       aria-label="Bottom navigation"
     >
       {navItems.map(({ href, label, icon: Icon }) => {

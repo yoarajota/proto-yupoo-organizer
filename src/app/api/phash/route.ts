@@ -5,6 +5,7 @@ import { getImageBuffer } from "@/lib/supabase/storage";
 import { calculateHammingDistance } from "@/lib/phash-utils";
 
 export async function POST(request: Request) {
+  let failedPhotoHashId: string | undefined;
   try {
     const { storagePath, photoHashId } = await request.json();
 
@@ -14,6 +15,8 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
+    const photoHashIdValue: string = photoHashId;
+    failedPhotoHashId = photoHashIdValue;
 
     // 1. Fetch photo from storage
     const buffer = await getImageBuffer(storagePath);
@@ -25,8 +28,8 @@ export async function POST(request: Request) {
     const supabase = await createClient();
     const { error: updateError } = await supabase
       .from("photo_hashes")
-      .update({ phash: computedHash })
-      .eq("id", photoHashId);
+      .update({ phash: computedHash, phash_status: "hashed" })
+      .eq("id", photoHashIdValue);
 
     if (updateError) {
       console.error("Failed to update pHash in database:", updateError.message);
@@ -38,7 +41,7 @@ export async function POST(request: Request) {
     const { data: existingHashes, error: fetchError } = await supabase
       .from("photo_hashes")
       .select("id, phash")
-      .not("id", "eq", photoHashId)
+      .not("id", "eq", photoHashIdValue)
       .not("phash", "is", null);
 
     if (fetchError) {
@@ -59,7 +62,7 @@ export async function POST(request: Request) {
           .from("similarity_matches")
           .insert(
             matches.map((m) => ({
-              source_photo_hash_id: photoHashId,
+              source_photo_hash_id: photoHashIdValue,
               matched_photo_hash_id: m.matched_photo_hash_id,
               distance: m.distance,
             })),
@@ -77,6 +80,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ data: { phash: computedHash }, error: null });
   } catch (error: any) {
     console.error("pHash computation pipeline failed:", error.message);
+    if (failedPhotoHashId) {
+      try {
+        const supabase = await createClient();
+        await supabase
+          .from("photo_hashes")
+          .update({ phash_status: "failed" })
+          .eq("id", failedPhotoHashId);
+      } catch {
+        // best effort: the row stays pending for a later retry
+      }
+    }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

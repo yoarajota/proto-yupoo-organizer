@@ -31,6 +31,29 @@ const LEET_CHAR_MAP: Record<string, string> = {
   '@': 'a',
 }
 
+const MASK_RUN_PATTERN = /\*{2,}/
+const SLASH_JOIN_PATTERN = /[/|_]+/g
+const LEADING_DECORATION_PATTERN = /^[^a-zA-Z0-9\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af*]+/u
+const EARLY_PRICE_TOKEN_PATTERN = /^[\d¥$€£₹₩₽¢.,%\-–—]+$/u
+const DIGITS_ONLY_PATTERN = /^\d+$/
+const LEADING_PROMO_TOKENS = new Set([
+  'special',
+  'sale',
+  'sales',
+  'promo',
+  'promotion',
+  'hot',
+  'limited',
+  'offer',
+  'offers',
+  'discount',
+  'discounted',
+  'outlet',
+  'wholesale',
+  'deal',
+  'deals',
+])
+
 function compactSingleLetterRuns(tokens: string[]) {
   const compacted: string[] = []
   let pending = ''
@@ -51,6 +74,19 @@ function compactSingleLetterRuns(tokens: string[]) {
   return compacted
 }
 
+function stripLeadingNoiseTokens(tokens: string[]) {
+  let start = 0
+  while (start < tokens.length) {
+    const token = tokens[start]
+    if (DIGITS_ONLY_PATTERN.test(token) || LEADING_PROMO_TOKENS.has(token)) {
+      start += 1
+      continue
+    }
+    break
+  }
+  return tokens.slice(start)
+}
+
 function hashGram(input: string) {
   let hash = 2166136261
 
@@ -67,7 +103,16 @@ function round6(value: number) {
 }
 
 export function cleanCatalogEmbeddingText(input: string) {
-  const punctuationCollapsed = input.replace(
+  const undecorated = input.replace(LEADING_DECORATION_PATTERN, '')
+  const priceTokens = undecorated.split(/\s+/)
+  while (priceTokens.length > 0 && EARLY_PRICE_TOKEN_PATTERN.test(priceTokens[0])) {
+    priceTokens.shift()
+  }
+  const depriced = priceTokens.join(' ')
+  const hasMaskRun = MASK_RUN_PATTERN.test(depriced)
+  const maskShielded = depriced.replace(MASK_RUN_PATTERN, ' ')
+  const slashSplit = maskShielded.replace(SLASH_JOIN_PATTERN, ' ')
+  const punctuationCollapsed = slashSplit.replace(
     /(?<=\p{L})[^\p{L}\p{N}\s]+(?=\p{L})/gu,
     '',
   )
@@ -86,7 +131,10 @@ export function cleanCatalogEmbeddingText(input: string) {
     .replace(/(.)\1{2,}/g, '$1$1')
     .trim()
 
-  return compactSingleLetterRuns(normalized.split(/\s+/).filter(Boolean)).join(' ')
+  const tokens = normalized.split(/\s+/).filter(Boolean)
+  const demasked = hasMaskRun ? tokens.filter((token) => token.length > 1) : tokens
+
+  return compactSingleLetterRuns(stripLeadingNoiseTokens(demasked)).join(' ')
 }
 
 export function hashCatalogEmbeddingSource(input: string) {

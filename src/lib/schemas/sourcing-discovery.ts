@@ -30,5 +30,11 @@ export const DiscoveryBatchSchema = z.object({
   suppliers: z.array(DiscoverySupplierSchema),
 })
 
+export const IngestMissionYupooImagesSchema = z.object({
+  mission_id: z.string().uuid(),
+  image_urls: z.array(z.string().url()).max(24),
+})
+
 export type RunMissionDiscoveryValues = z.infer<typeof RunMissionDiscoverySchema>
 export type DiscoveryBatchValues = z.infer<typeof DiscoveryBatchSchema>
+export type IngestMissionYupooImagesValues = z.infer<typeof IngestMissionYupooImagesSchema>

@@ -102,6 +102,8 @@ MISSION_QUEUE_BATCH_SIZE=5
 MISSION_DISCOVERY_MAX_REQUESTS=24
 ```
 
+Mission Run buttons default to running the stage inline in the server action while `NODE_ENV=development` (`MISSION_RUN_INLINE`; explicit `true`/`false` overrides the default), so local runs need no worker or Edge Function. Set `MISSION_RUN_INLINE=false` to exercise the queue path locally.
+
 3. Create `supabase/.env.local` from `supabase/.env.example`. Use the same `MISSION_WORKER_TOKEN`. The Edge Runtime worker URL should usually be:
 
 ```bash

@@ -11,6 +11,13 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { isUiPreviewMode } from "@/lib/preview"
+import {
+  formatMissionDiagnostics,
+  formatMissionError,
+  formatMissionEventLabel,
+  formatMissionStageLabel,
+  formatMissionStatusLabel,
+} from "@/lib/mission-display"
 
 type MissionDiagnosticsPageProps = {
   params: Promise<{ id: string }>
@@ -77,15 +84,34 @@ function formatDate(value: string | null) {
   }).format(new Date(value))
 }
 
-function formatJson(value: unknown) {
-  return JSON.stringify(value ?? {}, null, 2)
-}
-
 function statusVariant(status: string) {
   if (status === "succeeded" || status === "completed") return "default"
-  if (status === "failed" || status === "failed_retrying") return "destructive"
+  if (status === "failed" || status === "failed_retrying" || status === "failed_terminal") return "destructive"
   if (status === "queued") return "outline"
   return "secondary"
+}
+
+function DiagnosticsList({ value }: { value: unknown }) {
+  const items = formatMissionDiagnostics(value)
+
+  if (items.length === 0) {
+    return (
+      <p className="mt-3 rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
+        No extra details recorded.
+      </p>
+    )
+  }
+
+  return (
+    <dl className="mt-3 grid gap-2 rounded-md bg-muted p-3 text-xs sm:grid-cols-2">
+      {items.map((item) => (
+        <div key={item.label} className="min-w-0">
+          <dt className="font-medium text-muted-foreground">{item.label}</dt>
+          <dd className="mt-0.5 break-words text-foreground">{item.value}</dd>
+        </div>
+      ))}
+    </dl>
+  )
 }
 
 function DetailItem({
@@ -262,7 +288,9 @@ export default async function MissionDiagnosticsPage({
             </p>
           </div>
         </div>
-        <Badge variant={statusVariant(mission.status)}>{mission.status}</Badge>
+        <Badge variant={statusVariant(mission.status)}>
+          {formatMissionStatusLabel(mission.status)}
+        </Badge>
       </div>
 
       <Card className="rounded-lg">
@@ -285,7 +313,7 @@ export default async function MissionDiagnosticsPage({
                 </a>
               }
             />
-            <DetailItem label="Current stage" value={mission.current_stage ?? "None"} />
+            <DetailItem label="Current stage" value={formatMissionStageLabel(mission.current_stage)} />
             <DetailItem label="Attempt count" value={mission.attempt_count} />
             <DetailItem label="Queued" value={formatDate(mission.queued_at)} />
             <DetailItem label="Running" value={formatDate(mission.running_at)} />
@@ -294,8 +322,19 @@ export default async function MissionDiagnosticsPage({
           </div>
           {(mission.last_error_message || mission.last_error_code) && (
             <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-              <p className="font-medium">{mission.last_error_code ?? "Last error"}</p>
-              <p className="mt-1">{mission.last_error_message}</p>
+              {(() => {
+                const errorCopy = formatMissionError({
+                  code: mission.last_error_code,
+                  message: mission.last_error_message,
+                })
+
+                return (
+                  <>
+                    <p className="font-medium">{errorCopy.title}</p>
+                    <p className="mt-1">{errorCopy.detail}</p>
+                  </>
+                )
+              })()}
             </div>
           )}
           <div className="grid gap-4 md:grid-cols-3">
@@ -335,7 +374,9 @@ export default async function MissionDiagnosticsPage({
                         </p>
                         {category.classification_status && (
                           <div className="mt-2 flex flex-wrap gap-1.5">
-                            <Badge variant="secondary">{category.classification_status}</Badge>
+                            <Badge variant="secondary">
+                              {formatMissionStatusLabel(category.classification_status)}
+                            </Badge>
                             {category.brand_signal && (
                               <Badge variant="outline">Brand: {category.brand_signal}</Badge>
                             )}
@@ -405,12 +446,14 @@ export default async function MissionDiagnosticsPage({
                 <article key={run.id} className="rounded-md border bg-background p-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                      <p className="text-sm font-semibold">{run.stage_name}</p>
+                      <p className="text-sm font-semibold">{formatMissionStageLabel(run.stage_name)}</p>
                       <p className="text-xs text-muted-foreground">
                         Attempt {run.attempt_number} · queued {formatDate(run.queued_at)}
                       </p>
                     </div>
-                    <Badge variant={statusVariant(run.status)}>{run.status}</Badge>
+                    <Badge variant={statusVariant(run.status)}>
+                      {formatMissionStatusLabel(run.status)}
+                    </Badge>
                   </div>
                   <div className="mt-3 grid gap-3 text-sm md:grid-cols-3">
                     <DetailItem label="Started" value={formatDate(run.started_at)} />
@@ -419,13 +462,22 @@ export default async function MissionDiagnosticsPage({
                   </div>
                   {(run.error_message || run.error_code) && (
                     <div className="mt-3 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-                      <p className="font-medium">{run.error_code ?? "Run error"}</p>
-                      <p className="mt-1">{run.error_message}</p>
+                      {(() => {
+                        const errorCopy = formatMissionError({
+                          code: run.error_code,
+                          message: run.error_message,
+                        })
+
+                        return (
+                          <>
+                            <p className="font-medium">{errorCopy.title}</p>
+                            <p className="mt-1">{errorCopy.detail}</p>
+                          </>
+                        )
+                      })()}
                     </div>
                   )}
-                  <pre className="mt-3 max-h-56 overflow-auto rounded-md bg-muted p-3 text-xs text-muted-foreground">
-                    {formatJson(run.diagnostics)}
-                  </pre>
+                  <DiagnosticsList value={run.diagnostics} />
                 </article>
               ))}
             </div>
@@ -446,9 +498,9 @@ export default async function MissionDiagnosticsPage({
                 <li key={event.id} className="rounded-md border bg-background p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <p className="text-sm font-semibold">{event.event_name}</p>
+                      <p className="text-sm font-semibold">{formatMissionEventLabel(event.event_name)}</p>
                       <p className="text-xs text-muted-foreground">
-                        {event.stage_name} · {formatDate(event.created_at)}
+                        {formatMissionStageLabel(event.stage_name)} · {formatDate(event.created_at)}
                       </p>
                     </div>
                     {event.run_id && (
@@ -457,9 +509,7 @@ export default async function MissionDiagnosticsPage({
                       </span>
                     )}
                   </div>
-                  <pre className="mt-3 max-h-56 overflow-auto rounded-md bg-muted p-3 text-xs text-muted-foreground">
-                    {formatJson(event.diagnostics)}
-                  </pre>
+                  <DiagnosticsList value={event.diagnostics} />
                 </li>
               ))}
             </ol>

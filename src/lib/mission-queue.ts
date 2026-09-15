@@ -36,9 +36,6 @@ export async function enqueueMissionStage(
 ) {
   const parsed = EnqueueMissionStageSchema.safeParse(input)
   if (!parsed.success) return { data: null, error: { message: 'Invalid mission queue payload.' } }
-  if (parsed.data.stage !== 'discovery' && parsed.data.stage !== 'classifying_categories') {
-    return { data: null, error: { message: 'Only scrape discovery and classification missions are supported.' } }
-  }
 
   const { data: mission, error: missionError } = await supabase
     .from('sourcing_missions')

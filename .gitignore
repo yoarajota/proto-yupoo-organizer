@@ -49,5 +49,6 @@ next-env.d.ts
 .agent/
 .codex/
 .codex
+.playwright-cli/
 storage/agent-logs/
 .ui-review/

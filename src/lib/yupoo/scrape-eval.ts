@@ -1,10 +1,13 @@
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
+import { classifyDiscoveredCategory } from './classification.ts'
+import type { CanonicalBrand } from './category-config.ts'
 import type { YupooDiscoveryResult } from './scout.ts'
 
 export type YupooShopEvalExpectation = {
   min_categories?: number
   expected_labels?: string[]
+  expected_brands?: string[]
   min_preview_image_categories?: number
   require_preview_images?: boolean
 }
@@ -36,6 +39,8 @@ export type YupooShopRunSummary = {
   preview_fetched_category_count: number
   preview_image_count: number
   labels: string[]
+  brands: string[]
+  missing_brands: string[]
   content_hashes: string[]
   page_failures: Array<{ url: string; error: string | null; http_status: number | null }>
   missing_preview_categories: Array<{ source_url: string; raw_label: string }>
@@ -126,9 +131,15 @@ function normalizeExpectations(value: unknown): YupooShopEvalExpectation {
     throw new Error('shop.expectations.require_preview_images must be a boolean.')
   }
 
+  const expectedBrands = value.expected_brands
+  if (expectedBrands != null && (!Array.isArray(expectedBrands) || expectedBrands.some((brand) => typeof brand !== 'string' || !brand.trim()))) {
+    throw new Error('shop.expectations.expected_brands must be an array of non-empty strings.')
+  }
+
   return {
     min_categories: assertNonNegativeInteger(value.min_categories, 'shop.expectations.min_categories'),
     expected_labels: expectedLabels?.map((label) => label.trim()).filter(Boolean) as string[] | undefined,
+    expected_brands: expectedBrands?.map((brand) => brand.trim()).filter(Boolean) as string[] | undefined,
     min_preview_image_categories: assertNonNegativeInteger(
       value.min_preview_image_categories,
       'shop.expectations.min_preview_image_categories',
@@ -197,6 +208,7 @@ export function summarizeYupooShopRun(input: {
   artifactPath: string
   durationMs: number
   error?: unknown
+  canonical_brands?: CanonicalBrand[]
 }): YupooShopRunSummary {
   const id = normalizeShopId(input.shop.url, input.shop.id)
   const expectations = input.shop.expectations ?? {}
@@ -233,6 +245,23 @@ export function summarizeYupooShopRun(input: {
   const missingExpectedLabels = (expectations.expected_labels ?? []).filter((label) => !includesLabel(labels, label))
   if (missingExpectedLabels.length > 0) failureCodes.push('missing_expected_labels')
 
+  const brandSignals = Array.from(
+    new Set(
+      categories
+        .map((category) =>
+          classifyDiscoveredCategory({
+            raw_label: category.raw_label,
+            category_path: category.category_path,
+            source_url: category.source_url,
+            context: input.canonical_brands ? { canonical_brands: input.canonical_brands } : undefined,
+          }).brand_signal,
+        )
+        .filter((signal): signal is string => Boolean(signal)),
+    ),
+  ).sort()
+  const missingBrands = (expectations.expected_brands ?? []).filter((brand) => !brandSignals.includes(brand))
+  if (missingBrands.length > 0) failureCodes.push('missing_expected_brands')
+
   return {
     id,
     url: input.shop.url,
@@ -247,6 +276,8 @@ export function summarizeYupooShopRun(input: {
     preview_fetched_category_count: previewFetchedCategories.length,
     preview_image_count: previewImageCount,
     labels,
+    brands: brandSignals,
+    missing_brands: missingBrands,
     content_hashes: pages.flatMap((page) => (page.content_hash ? [page.content_hash] : [])),
     page_failures: pageFailures,
     missing_preview_categories: missingPreviewCategories,
@@ -403,5 +434,53 @@ export function compareYupooScrapeEvalReports(input: {
       at_least_one_failure_cluster_improved: atLeastOneFailureClusterImproved,
       accepted: input.unitTestsPassed && noPreviouslyPassingRegressions && atLeastOneFailureClusterImproved,
     },
+  }
+}
+
+export type EvasionFixtureExpectation = {
+  raw_label: string
+  expected_brand: string | null
+  expect_review: boolean
+  notes?: string
+}
+
+export const FROZEN_EVASION_FIXTURES: EvasionFixtureExpectation[] = [
+  { raw_label: 'Thorium/Maicai/Down Jacket', expected_brand: 'arcteryx', expect_review: false, notes: 'west42 2026-05-11: slash-joined transliteration lines' },
+  { raw_label: 'Ca*har*t WIP', expected_brand: 'carhartt', expect_review: false, notes: 'west42 2026-05-11: intra-word mask stripping' },
+  { raw_label: 'S****i****', expected_brand: null, expect_review: true, notes: 'west42 2026-05-11: full-mask run must not compact into a brand' },
+  { raw_label: 'C*** C*OM*PANY', expected_brand: null, expect_review: true, notes: 'west42 2026-05-11: masked company evasion stays in review' },
+  { raw_label: 'Mon*t-B*ell', expected_brand: null, expect_review: true, notes: 'west42 2026-05-11: unharvested brand stays in review' },
+  { raw_label: 'AIR JORDAN 1', expected_brand: 'jordan', expect_review: false, notes: 'tmf001 2026-05-11: model-code suffix with multi-word alias' },
+  { raw_label: 'AJ1', expected_brand: 'jordan', expect_review: false, notes: 'catalog abbreviation resolved through alias entries' },
+  { raw_label: 'AC*N*E', expected_brand: 'acne', expect_review: false, notes: 'horizonlux 2026-05-11 as A*CNE STUDIOS' },
+  { raw_label: 'burserry', expected_brand: 'burberry', expect_review: false, notes: 'harvested typo variant' },
+  { raw_label: 'PDA', expected_brand: 'prada', expect_review: false, notes: 'short alias resolved through entries, never embedding-alone' },
+  { raw_label: '¥99 Air Jordan 1', expected_brand: 'jordan', expect_review: false, notes: 'price-prefixed intent with noise stripped' },
+  { raw_label: '🔥Special Sale Nike Shoes', expected_brand: 'nike', expect_review: false, notes: 'promo-prefixed intent with noise stripped' },
+]
+
+export type EvasionFixtureOutcome = {
+  raw_label: string
+  expected_brand: string | null
+  expect_review: boolean
+  brand_signal: string | null
+  classification_status: string
+}
+
+export function summarizeEvasionFixtureSet(outcomes: EvasionFixtureOutcome[]) {
+  const failures = outcomes
+    .filter((outcome) => {
+      if (outcome.expected_brand) return outcome.brand_signal !== outcome.expected_brand
+      return outcome.brand_signal != null || outcome.classification_status === 'auto_accepted'
+    })
+    .map((outcome) => outcome.raw_label)
+
+  const resolved = outcomes.length - failures.length
+
+  return {
+    total: outcomes.length,
+    resolved,
+    resolution_rate: outcomes.length === 0 ? 0 : Math.round((resolved / outcomes.length) * 10000) / 10000,
+    failures,
   }
 }

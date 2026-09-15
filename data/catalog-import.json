@@ -21,7 +21,7 @@
     },
     {
       "name": "Nike",
-      "aliases": ["nike", "nk", "n i k e", "swoosh"]
+      "aliases": ["nike", "nk", "n i k e", "swoosh", "N*KE"]
     },
     {
       "name": "Air Jordan",
@@ -69,7 +69,7 @@
     },
     {
       "name": "Chrome Hearts",
-      "aliases": ["CH", "Chrome-Hearts", "chromehearts", "chrome hearts"]
+      "aliases": ["CH", "Chrome-Hearts", "chromehearts", "chrome hearts", "CH*OME"]
     },
     {
       "name": "Supreme",
@@ -141,7 +141,7 @@
     },
     {
       "name": "Acne Studios",
-      "aliases": ["Acne", "acne studios", "acne-studios"]
+      "aliases": ["Acne", "AC*N*E", "acne studios", "acne-studios"]
     },
     {
       "name": "Under Armour",
@@ -177,7 +177,7 @@
     },
     {
       "name": "Prada",
-      "aliases": ["prada", "Prd", "PRA*DA*"]
+      "aliases": ["prada", "Prd", "PRA*DA*", "PDA"]
     },
     {
       "name": "Tiffany & Co.",
@@ -209,7 +209,7 @@
     },
     {
       "name": "Arc'teryx",
-      "aliases": ["arcteryx", "arc teryx", "arc'teryx", "arc"]
+      "aliases": ["arcteryx", "arc teryx", "arc'teryx", "arc", "Maicai", "Thorium"]
     },
     {
       "name": "Canada Goose",
@@ -309,7 +309,7 @@
     },
     {
       "name": "Carhartt WIP",
-      "aliases": ["Carhartt", "carhartt wip", "carhartt-wip"]
+      "aliases": ["Carhartt", "Ca*har*t", "carhartt wip", "carhartt-wip"]
     },
     {
       "name": "The North Face",

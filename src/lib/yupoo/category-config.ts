@@ -51,7 +51,7 @@ export const CANONICAL_BRANDS: CanonicalBrand[] = [
   {
     canonical: 'jordan',
     display: 'Jordan',
-    aliases: ['jordan', 'air jordan', 'a j'],
+    aliases: ['jordan', 'air jordan', 'a j', 'AJ1'],
     embeddingTerms: ['jordan', 'air jordan'],
   },
   {

@@ -96,30 +96,39 @@ export type Database = {
         Row: {
           alt_text: string
           created_at: string
-          created_by: string
+          created_by: string | null
+          download_status: string
           id: string
+          mission_id: string | null
           phash: string | null
-          product_id: string
+          phash_status: string
+          product_id: string | null
           storage_path: string
           updated_at: string
         }
         Insert: {
           alt_text?: string
           created_at?: string
-          created_by: string
+          created_by?: string | null
+          download_status?: string
           id?: string
+          mission_id?: string | null
           phash?: string | null
-          product_id: string
+          phash_status?: string
+          product_id?: string | null
           storage_path: string
           updated_at?: string
         }
         Update: {
           alt_text?: string
           created_at?: string
-          created_by?: string
+          created_by?: string | null
+          download_status?: string
           id?: string
+          mission_id?: string | null
           phash?: string | null
-          product_id?: string
+          phash_status?: string
+          product_id?: string | null
           storage_path?: string
           updated_at?: string
         }
@@ -136,6 +145,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "photo_hashes_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "sourcing_missions"
             referencedColumns: ["id"]
           },
         ]

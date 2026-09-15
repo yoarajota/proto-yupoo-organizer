@@ -95,7 +95,8 @@ export function rankSuppliersForMission(
       const freshnessScore = scoreFreshness(supplier.last_seen_at, nowIso)
 
       const rankScore = round4(
-        normalizedOverlap * 0.55 +
+        normalizedOverlap * 0.4 +
+        normalizedBrandOverlap * 0.15 +
         rawKeywordOverlap * 0.2 +
         supplierConfidence * 0.15 +
         freshnessScore * 0.1,

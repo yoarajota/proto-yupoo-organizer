@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest'
+import { classifyDiscoveredCategory } from './classification.ts'
 import {
   analyzeYupooScrapeSummaries,
   compareYupooScrapeEvalReports,
+  FROZEN_EVASION_FIXTURES,
   parseYupooShopEvalInput,
+  summarizeEvasionFixtureSet,
   summarizeYupooShopRun,
 } from './scrape-eval.ts'
 import type { YupooDiscoveryResult } from './scout.ts'
@@ -377,5 +380,197 @@ describe('compareYupooScrapeEvalReports', () => {
       improved: true,
       notes: expect.arrayContaining(['preview_image_count_improved']),
     })
+  })
+})
+
+describe('frozen evasion fixtures (Wave 2 denominator for T019)', () => {
+  const curatedBrands = [
+    { canonical: 'arcteryx', display: "Arc'teryx", aliases: ['Maicai', 'Thorium'], embeddingTerms: ["Arc'teryx"] },
+    { canonical: 'carhartt', display: 'Carhartt', aliases: ['Carhartt', 'Ca*har*t'], embeddingTerms: ['Carhartt'] },
+    { canonical: 'acne', display: 'Acne Studios', aliases: ['Acne', 'AC*N*E'], embeddingTerms: ['Acne'] },
+    { canonical: 'burberry', display: 'Burberry', aliases: ['Burberry', 'burserry'], embeddingTerms: ['Burberry'] },
+    { canonical: 'prada', display: 'Prada', aliases: ['Prada', 'PDA'], embeddingTerms: ['Prada'] },
+    { canonical: 'stone-island', display: 'Stone Island', aliases: ['stone island', 'SI', 'stoney'], embeddingTerms: ['Stone Island'] },
+  ]
+
+  it('freezes the live-observed evasion label set', () => {
+    expect(FROZEN_EVASION_FIXTURES).toHaveLength(12)
+    expect(FROZEN_EVASION_FIXTURES.map((fixture) => fixture.raw_label)).toContain('S****i****')
+  })
+
+  it('resolves every frozen evasion label to its expected brand or review', () => {
+    const outcomes = FROZEN_EVASION_FIXTURES.map((fixture) => {
+      const result = classifyDiscoveredCategory({
+        raw_label: fixture.raw_label,
+        category_path: ['fixtures'],
+        source_url: 'https://fixture.invalid/',
+        context: { canonical_brands: curatedBrands },
+      })
+
+      return {
+        raw_label: fixture.raw_label,
+        expected_brand: fixture.expected_brand,
+        expect_review: fixture.expect_review,
+        brand_signal: result.brand_signal,
+        classification_status: result.classification_status,
+      }
+    })
+    const summary = summarizeEvasionFixtureSet(outcomes)
+
+    expect(summary.failures).toEqual([])
+    expect(summary.resolution_rate).toBe(1)
+  })
+
+  it('flags missing live-observed labels in shop summaries', () => {
+    const summary = summarizeYupooShopRun({
+      shop: {
+        id: 'west42',
+        url: 'https://west42.x.yupoo.com/',
+        expectations: {
+          min_categories: 1,
+          expected_labels: ['Thorium/Maicai/Down Jacket', 'Ca*har*t WIP'],
+        },
+      },
+      result: makeResult({ categories: [] }),
+      artifactPath: 'west42.json',
+      durationMs: 12,
+    })
+
+    expect(summary.ok).toBe(false)
+    expect(summary.failure_codes).toContain('missing_expected_labels')
+  })
+})
+
+describe('evasion resolution rate (T019 >=80% computation point, no OCR)', () => {
+  const curatedBrands = [
+    { canonical: 'arcteryx', display: "Arc'teryx", aliases: ['Maicai', 'Thorium'], embeddingTerms: ["Arc'teryx"] },
+    { canonical: 'carhartt', display: 'Carhartt', aliases: ['Carhartt', 'Ca*har*t'], embeddingTerms: ['Carhartt'] },
+    { canonical: 'acne', display: 'Acne Studios', aliases: ['Acne', 'AC*N*E'], embeddingTerms: ['Acne'] },
+    { canonical: 'burberry', display: 'Burberry', aliases: ['Burberry', 'burserry'], embeddingTerms: ['Burberry'] },
+    { canonical: 'prada', display: 'Prada', aliases: ['Prada', 'PDA'], embeddingTerms: ['Prada'] },
+    { canonical: 'stone-island', display: 'Stone Island', aliases: ['stone island', 'SI', 'stoney'], embeddingTerms: ['Stone Island'] },
+  ]
+
+  function classifyFixtures() {
+    return FROZEN_EVASION_FIXTURES.map((fixture) => ({
+      fixture,
+      result: classifyDiscoveredCategory({
+        raw_label: fixture.raw_label,
+        category_path: ['fixtures'],
+        source_url: 'https://fixture.invalid/',
+        context: { canonical_brands: curatedBrands },
+      }),
+    }))
+  }
+
+  it('computes the evasion-label resolution rate over the frozen 12-label set', () => {
+    const outcomes = classifyFixtures().map(({ fixture, result }) => ({
+      raw_label: fixture.raw_label,
+      expected_brand: fixture.expected_brand,
+      expect_review: fixture.expect_review,
+      brand_signal: result.brand_signal,
+      classification_status: result.classification_status,
+    }))
+    const summary = summarizeEvasionFixtureSet(outcomes)
+
+    expect(summary.total).toBe(12)
+    expect(summary.resolution_rate).toBeGreaterThanOrEqual(0.8)
+  })
+
+  it('routes full-mask evasion into review and resolved variants into auto-accept', () => {
+    const classified = classifyFixtures()
+
+    for (const { fixture, result } of classified) {
+      if (fixture.expect_review) {
+        expect(result.classification_status).toBe('needs_review')
+        expect(result.evidence.decision_reason).toBe('unresolved_label')
+      } else {
+        expect(result.brand_signal).toBe(fixture.expected_brand)
+        expect(result.classification_status).toBe('auto_accepted')
+      }
+    }
+
+    const reviewCount = classified.filter(({ result }) => result.classification_status === 'needs_review').length
+    expect(reviewCount).toBe(3)
+  })
+})
+
+describe('shop brand expectations (T019)', () => {
+  const curatedBrands = [
+    { canonical: 'arcteryx', display: "Arc'teryx", aliases: ['Maicai', 'Thorium'], embeddingTerms: ["Arc'teryx"] },
+    { canonical: 'carhartt', display: 'Carhartt', aliases: ['Carhartt', 'Ca*har*t'], embeddingTerms: ['Carhartt'] },
+  ]
+
+  function brandResult(labels: string[]) {
+    return makeResult({
+      categories: labels.map((raw_label, index) => ({
+        source_url: `https://west42.x.yupoo.com/categories/${index}`,
+        category_path: ['categories', String(index)],
+        raw_label,
+        preview_image_urls: [],
+        preview_image_status: 'fetched' as const,
+        extracted_at: fetchedAt,
+        confidence: 0.9,
+      })),
+    })
+  }
+
+  it('validates expected brand slugs', () => {
+    const parsed = parseYupooShopEvalInput({
+      shops: [
+        {
+          url: 'https://west42.x.yupoo.com',
+          expectations: { min_categories: 1, expected_brands: ['arcteryx'] },
+        },
+      ],
+    })
+
+    expect(parsed.shops[0]?.expectations?.expected_brands).toEqual(['arcteryx'])
+    expect(() =>
+      parseYupooShopEvalInput({
+        shops: [
+          {
+            url: 'https://west42.x.yupoo.com',
+            expectations: { expected_brands: [''] },
+          },
+        ],
+      }),
+    ).toThrow('expected_brands')
+  })
+
+  it('passes when every expected brand resolves from scraped labels', () => {
+    const summary = summarizeYupooShopRun({
+      shop: {
+        id: 'west42',
+        url: 'https://west42.x.yupoo.com/',
+        expectations: { min_categories: 1, expected_brands: ['arcteryx', 'carhartt'] },
+      },
+      result: brandResult(['Thorium/Maicai/Down Jacket', 'Ca*har*t WIP']),
+      artifactPath: 'west42.json',
+      durationMs: 12,
+      canonical_brands: curatedBrands,
+    })
+
+    expect(summary.ok).toBe(true)
+    expect(summary.brands).toEqual(['arcteryx', 'carhartt'])
+    expect(summary.missing_brands).toEqual([])
+  })
+
+  it('reports missing_expected_brands as a failure mode', () => {
+    const summary = summarizeYupooShopRun({
+      shop: {
+        id: 'west42',
+        url: 'https://west42.x.yupoo.com/',
+        expectations: { min_categories: 1, expected_brands: ['arcteryx', 'carhartt'] },
+      },
+      result: brandResult(['Thorium/Maicai/Down Jacket', 'S****i****']),
+      artifactPath: 'west42.json',
+      durationMs: 12,
+      canonical_brands: curatedBrands,
+    })
+
+    expect(summary.ok).toBe(false)
+    expect(summary.failure_codes).toContain('missing_expected_brands')
+    expect(summary.missing_brands).toEqual(['carhartt'])
   })
 })

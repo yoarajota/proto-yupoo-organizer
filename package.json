@@ -11,6 +11,7 @@
     "lint": "eslint",
     "catalog:import": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/import-catalog.ts",
     "catalog:embeddings:seed": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/seed-catalog-embeddings.ts",
+    "harvest:brand-aliases": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/harvest-brand-aliases.ts",
     "scrape:eval": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/run-yupoo-scrape-eval.ts",
     "scrape:eval:analyze": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/analyze-yupoo-scrape-eval.ts",
     "scrape:eval:compare": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/compare-yupoo-scrape-eval.ts",

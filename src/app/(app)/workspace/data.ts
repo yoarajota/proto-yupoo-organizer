@@ -1,5 +1,12 @@
 import { createClient } from "@/lib/supabase/server"
 import type { MissionRowType } from "@/lib/mission-category-review"
+import {
+  attachSuggestedReviewAliases,
+  buildKnownAliasForms,
+  groupMissionCategoryReviewItems,
+  toPendingCategoryReviewRows,
+  toReviewDecisions,
+} from "@/lib/mission-category-review"
 import type { Database } from "@/types/database"
 import type { InquiryWithSupplier } from "@/components/organisms/InquiryRow"
 import type { SourceWithProfile } from "@/components/organisms/SourceRow"
@@ -638,6 +645,51 @@ export async function getWorkspaceData(
     }
   })
 
+  const missionIdList = ((missions ?? []) as Array<{ id: string }>).map((mission) => mission.id)
+  const reviewGroupsByMission: Record<string, MissionRowType['review_items']> = {}
+  const pendingCountByMission: Record<string, number> = {}
+
+  if (activeSection === "review" && missionIdList.length > 0) {
+    const [{ data: pendingCategories }, { data: reviewedClassifications }] = await Promise.all([
+      supabase
+        .from("discovered_categories")
+        .select("id, mission_id, raw_label, normalized_label, brand_signal, product_signal, classification_confidence, classification_method, classification_status, preview_image_urls, source_url")
+        .in("mission_id", missionIdList)
+        .eq("classification_status", "needs_review"),
+      supabase
+        .from("mission_category_classifications")
+        .select("mission_id, canonical_brand, evidence")
+        .in("mission_id", missionIdList)
+        .eq("classification_status", "reviewed"),
+    ])
+
+    const knownAliasForms = buildKnownAliasForms(
+      (brandPageData.brands ?? []) as Array<{
+        name: string
+        slug: string
+        brand_aliases: Array<{ alias: string }>
+      }>,
+    )
+    const grouped = groupMissionCategoryReviewItems(
+      toPendingCategoryReviewRows(
+        ((pendingCategories ?? []) as Parameters<typeof toPendingCategoryReviewRows>[0]),
+      ),
+    )
+    const reviewedByMission = new Map<string, Array<{ canonical_brand: string | null; evidence: unknown }>>()
+    ;((reviewedClassifications ?? []) as Array<{ mission_id: string; canonical_brand: string | null; evidence: unknown }>).forEach((row) => {
+      reviewedByMission.set(row.mission_id, [...(reviewedByMission.get(row.mission_id) ?? []), row])
+    })
+
+    Object.entries(grouped).forEach(([missionId, items]) => {
+      reviewGroupsByMission[missionId] = attachSuggestedReviewAliases(
+        items,
+        toReviewDecisions(reviewedByMission.get(missionId) ?? []),
+        knownAliasForms,
+      )
+      pendingCountByMission[missionId] = items.reduce((total, item) => total + item.occurrence_count, 0)
+    })
+  }
+
   const missionRows = ((missions ?? []) as Array<{
     id: string
     product_intent: string
@@ -654,8 +706,8 @@ export async function getWorkspaceData(
     created_at: string
   }>).map((mission) => ({
     ...mission,
-    pending_classifications_count: 0,
-    review_items: [],
+    pending_classifications_count: pendingCountByMission[mission.id] ?? 0,
+    review_items: reviewGroupsByMission[mission.id] ?? [],
   })) as MissionRowType[]
 
   return {

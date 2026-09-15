@@ -2,10 +2,12 @@ import { z } from 'zod'
 import { MissionStageSchema, type MissionStage } from '@/lib/mission-status'
 import {
   RunMissionDiscoverySchema,
+  IngestMissionYupooImagesSchema,
   type RunMissionDiscoveryValues,
 } from '@/lib/schemas/sourcing-discovery'
 import {
   RunMissionCategoryClassificationSchema,
+  RollupCategoryStrategySchema,
   type RunMissionCategoryClassificationValues,
 } from '@/lib/schemas/sourcing-classification'
 import {
@@ -21,7 +23,25 @@ import {
   type ParseInboundOffersValues,
 } from '@/lib/schemas/sourcing-inbound'
 import { extractDiscoveryFromHtml, scrapeYupooDiscovery } from '@/lib/yupoo/scout'
-import { classifyDiscoveredCategory } from '@/lib/yupoo/classification'
+import {
+  ingestMissionYupooImages,
+  retryPendingPhotoHashes,
+  selectYupooImageUrls,
+} from '@/lib/yupoo/yupoo-images'
+import { writeAgentRunArtifact } from '@/lib/agent-logs'
+import {
+  buildCatalogEmbedding,
+  CATALOG_EMBEDDING_BRAND_THRESHOLD,
+  CATALOG_EMBEDDING_PRODUCT_THRESHOLD,
+  stripCatalogSignal,
+  type CatalogEmbeddingEntityType,
+  type CatalogEmbeddingMatch,
+} from '@/lib/catalog-embeddings'
+import { classifyDiscoveredCategory, cleanupCategoryText } from '@/lib/yupoo/classification'
+import { rollupCategoryStrategy } from '@/lib/mission-category-review'
+import type { CanonicalBrand, CanonicalProduct } from '@/lib/yupoo/category-config'
+import { refreshSupplierClassificationRefs } from '@/lib/yupoo/supplier-refs'
+import type { Database } from '@/types/database'
 import { rankSuppliersForMission } from '@/lib/yupoo/match'
 import { buildOutreachMessage } from '@/lib/yupoo/outreach'
 import { parseInboundMessage } from '@/lib/yupoo/inbound'
@@ -29,6 +49,11 @@ import { parseInboundMessage } from '@/lib/yupoo/inbound'
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type SupabaseAdminClient = {
   from: (table: string) => any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  rpc?: (...args: any[]) => any
+  storage?: {
+    from: (bucket: string) => any
+  }
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
@@ -318,6 +343,42 @@ export async function executeMissionDiscoveryStage(
     diagnostics: { suppliers_count: discovered.suppliers.length },
   })
 
+  const { urls: yupooImageUrls, capped: yupooImagesCapped } = selectYupooImageUrls(
+    discovered.categories,
+  )
+  const ingestInput = IngestMissionYupooImagesSchema.safeParse({
+    mission_id: parsed.mission_id,
+    image_urls: yupooImageUrls,
+  })
+  let yupooImageIngest: Record<string, unknown> = {
+    skipped: yupooImageUrls.length === 0 || !ingestInput.success,
+  }
+  try {
+    if (ingestInput.success && ingestInput.data.image_urls.length > 0) {
+      const ingested = await ingestMissionYupooImages(
+        supabase,
+        parsed.mission_id,
+        ingestInput.data.image_urls,
+      )
+      const retried = await retryPendingPhotoHashes(supabase, {
+        missionId: parsed.mission_id,
+      })
+      yupooImageIngest = { ...ingested, ...retried, capped: yupooImagesCapped }
+    }
+  } catch (error) {
+    yupooImageIngest = {
+      failed: true,
+      message: error instanceof Error ? error.message : 'Yupoo image ingest failed.',
+    }
+  }
+  await recordMissionStageEvent(supabase, {
+    missionId: parsed.mission_id,
+    runId: context.runId,
+    stage: 'discovery',
+    eventName: 'worker_discovery_images_ingested',
+    diagnostics: yupooImageIngest,
+  })
+
   const finishedAt = new Date().toISOString()
   await finishStageMetric(supabase, parsed.mission_id, 'discovery', startedAt, finishedAt)
   await updateMission(supabase, parsed.mission_id, { status: 'completed' })
@@ -344,6 +405,168 @@ export async function executeMissionDiscoveryStage(
   }
 }
 
+function getOrigin(url: string) {
+  try {
+    return new URL(url).origin
+  } catch {
+    return url
+  }
+}
+
+type BrandAliasRow = {
+  slug: string
+  name: string
+  brand_aliases?: { alias: string }[] | null
+}
+
+type ProductTypeRow = {
+  slug: string
+  name: string
+}
+
+type CatalogEmbeddingRpcMatch =
+  Database['public']['Functions']['match_catalog_embeddings']['Returns'][number]
+
+type ClassifiedRow = {
+  source: ClassificationSourceRow
+  result: ReturnType<typeof classifyDiscoveredCategory>
+}
+
+function toCanonicalBrands(rows: BrandAliasRow[]): CanonicalBrand[] {
+  return rows.map((brand) => ({
+    canonical: brand.slug,
+    display: brand.name,
+    aliases: Array.from(
+      new Set([
+        brand.name,
+        brand.slug,
+        ...(brand.brand_aliases ?? []).map((alias) => alias.alias),
+      ]),
+    ),
+    embeddingTerms: Array.from(
+      new Set([
+        brand.name,
+        brand.slug,
+        ...(brand.brand_aliases ?? []).map((alias) => alias.alias),
+      ]),
+    ),
+  }))
+}
+
+function toCanonicalProducts(rows: ProductTypeRow[]): CanonicalProduct[] {
+  return rows.map((productType) => ({
+    canonical: productType.slug,
+    display: productType.name,
+    aliases: Array.from(new Set([productType.name, productType.slug])),
+  }))
+}
+
+function toCatalogEmbeddingMatch(
+  row: CatalogEmbeddingRpcMatch | null | undefined,
+  threshold: number,
+): CatalogEmbeddingMatch | null {
+  if (!row?.canonical_slug || !row.entity_id || !row.entity_type || !row.source_text) return null
+
+  return {
+    entity_type: row.entity_type as CatalogEmbeddingEntityType,
+    entity_id: row.entity_id,
+    canonical_slug: row.canonical_slug,
+    canonical_name: row.canonical_name ?? row.canonical_slug,
+    source_text: row.source_text,
+    similarity: Number(row.similarity ?? 0),
+    threshold,
+  }
+}
+
+async function fetchCatalogEmbeddingMatch(
+  supabase: SupabaseAdminClient,
+  input: {
+    text: string
+    entityTypes: CatalogEmbeddingEntityType[]
+    threshold: number
+  },
+) {
+  if (!supabase.rpc) return null
+  const embedding = buildCatalogEmbedding(input.text)
+  const { data, error } = await supabase.rpc('match_catalog_embeddings', {
+    query_embedding: embedding.pgvector,
+    entity_types: input.entityTypes,
+    match_threshold: input.threshold,
+    match_count: 1,
+  })
+
+  if (error) throw new Error(error.message)
+
+  return toCatalogEmbeddingMatch((data as CatalogEmbeddingRpcMatch[] | null)?.[0], input.threshold)
+}
+
+function incrementBucket(bucket: Record<string, number>, key: string | null | undefined) {
+  const resolvedKey = key || 'unknown'
+  bucket[resolvedKey] = (bucket[resolvedKey] ?? 0) + 1
+}
+
+function buildClassificationDiagnostics(classified: ClassifiedRow[]) {
+  const uniqueNormalizedLabels = new Set<string>()
+  const duplicateLabelsByMission = new Map<string, number>()
+  const duplicateLabelsByShop = new Map<string, number>()
+  const autoAcceptedByMethod: Record<string, number> = {}
+  const autoAcceptedByReason: Record<string, number> = {}
+  const needsReviewByReason: Record<string, number> = {}
+
+  classified.forEach(({ source, result }) => {
+    uniqueNormalizedLabels.add(result.normalized_label)
+
+    const repeatedLabelCount = Number(result.evidence.repeated_normalized_label_count ?? 1)
+    const repeatedWithinShopCount = Number(result.evidence.repeated_within_shop_label_count ?? 1)
+    const decisionReason = String(result.evidence.decision_reason ?? 'unknown')
+
+    if (repeatedLabelCount >= 2) {
+      duplicateLabelsByMission.set(
+        result.normalized_label,
+        Math.max(duplicateLabelsByMission.get(result.normalized_label) ?? 0, repeatedLabelCount),
+      )
+    }
+
+    if (repeatedWithinShopCount >= 2) {
+      const shopKey = `${getOrigin(source.source_url)}::${result.normalized_label}`
+      duplicateLabelsByShop.set(
+        shopKey,
+        Math.max(duplicateLabelsByShop.get(shopKey) ?? 0, repeatedWithinShopCount),
+      )
+    }
+
+    if (result.classification_status === 'auto_accepted') {
+      incrementBucket(autoAcceptedByMethod, result.classification_method)
+      incrementBucket(autoAcceptedByReason, decisionReason)
+      return
+    }
+
+    if (result.classification_status === 'needs_review') {
+      incrementBucket(needsReviewByReason, decisionReason)
+    }
+  })
+
+  return {
+    total_categories_scanned: classified.length,
+    unique_normalized_labels: uniqueNormalizedLabels.size,
+    duplicate_labels_by_mission: Array.from(duplicateLabelsByMission.entries()).map(([label, count]) => ({
+      normalized_label: label,
+      occurrences: count,
+    })),
+    duplicate_labels_by_shop: Array.from(duplicateLabelsByShop.entries()).map(([key, count]) => {
+      const [shop_origin, normalized_label] = key.split('::')
+      return {
+        shop_origin,
+        normalized_label,
+        occurrences: count,
+      }
+    }),
+    auto_accepted_count_by_method: autoAcceptedByMethod,
+    auto_accepted_count_by_reason: autoAcceptedByReason,
+    needs_review_count_by_reason: needsReviewByReason,
+  }
+}
+
 export async function executeMissionCategoryClassificationStage(
   supabase: SupabaseAdminClient,
   input: RunMissionCategoryClassificationValues,
@@ -361,10 +584,135 @@ export async function executeMissionCategoryClassificationStage(
 
   if (error) throw new Error(error.message)
 
-  const classified = ((categories ?? []) as ClassificationSourceRow[]).map((category) => ({
+  const { data: brandRows, error: brandRowsError } = await supabase
+    .from('brands')
+    .select('slug, name, brand_aliases(alias)')
+    .order('name')
+
+  if (brandRowsError) throw new Error(brandRowsError.message)
+
+  const { data: productTypeRows, error: productTypeRowsError } = await supabase
+    .from('product_types')
+    .select('slug, name')
+    .order('name')
+
+  if (productTypeRowsError) throw new Error(productTypeRowsError.message)
+
+  const canonicalBrands = (brandRows ?? []).length > 0
+    ? toCanonicalBrands((brandRows ?? []) as BrandAliasRow[])
+    : undefined
+  const canonicalProducts = (productTypeRows ?? []).length > 0
+    ? toCanonicalProducts((productTypeRows ?? []) as ProductTypeRow[])
+    : undefined
+
+  const categoryRows = (categories ?? []) as ClassificationSourceRow[]
+
+  const normalizedLabelCounts = new Map<string, number>()
+  const normalizedLabelCountsByShop = new Map<string, number>()
+  const repeatedSignalPairCounts = new Map<string, number>()
+
+  const ruleOnlyClassified = categoryRows.map((category) => ({
     source: category,
-    result: classifyDiscoveredCategory(category),
+    ruleResult: classifyDiscoveredCategory({
+      ...category,
+      context: {
+        canonical_brands: canonicalBrands,
+        canonical_products: canonicalProducts,
+      },
+    }),
   }))
+
+  const vectorResolved = await Promise.all(ruleOnlyClassified.map(async ({ source, ruleResult }) => {
+    const needsBrandMatch = !ruleResult.brand_signal
+    const needsProductMatch = !ruleResult.product_signal
+
+    let embeddingBrandMatch: CatalogEmbeddingMatch | null = null
+    let embeddingProductMatch: CatalogEmbeddingMatch | null = null
+
+    if (needsBrandMatch || needsProductMatch) {
+      ;[embeddingBrandMatch, embeddingProductMatch] = await Promise.all([
+        needsBrandMatch
+          ? fetchCatalogEmbeddingMatch(supabase, {
+              text: stripCatalogSignal(ruleResult.normalized_label, ruleResult.product_signal),
+              entityTypes: ['brand', 'brand_alias'],
+              threshold: CATALOG_EMBEDDING_BRAND_THRESHOLD,
+            })
+          : Promise.resolve(null),
+        needsProductMatch
+          ? fetchCatalogEmbeddingMatch(supabase, {
+              text: stripCatalogSignal(ruleResult.normalized_label, ruleResult.brand_signal),
+              entityTypes: ['product_type'],
+              threshold: CATALOG_EMBEDDING_PRODUCT_THRESHOLD,
+            })
+          : Promise.resolve(null),
+      ])
+    }
+
+    const result = classifyDiscoveredCategory({
+      ...source,
+      context: {
+        canonical_brands: canonicalBrands,
+        canonical_products: canonicalProducts,
+        embedding_brand_match: embeddingBrandMatch,
+        embedding_product_match: embeddingProductMatch,
+      },
+    })
+
+    normalizedLabelCounts.set(
+      result.normalized_label,
+      (normalizedLabelCounts.get(result.normalized_label) ?? 0) + 1,
+    )
+
+    const shopLabelKey = `${getOrigin(source.source_url)}::${result.normalized_label}`
+    normalizedLabelCountsByShop.set(
+      shopLabelKey,
+      (normalizedLabelCountsByShop.get(shopLabelKey) ?? 0) + 1,
+    )
+
+    if (result.brand_signal && result.product_signal) {
+      const signalPairKey = `${result.brand_signal}::${result.product_signal}`
+      repeatedSignalPairCounts.set(
+        signalPairKey,
+        (repeatedSignalPairCounts.get(signalPairKey) ?? 0) + 1,
+      )
+    }
+
+    return {
+      source,
+      embeddingBrandMatch,
+      embeddingProductMatch,
+      baseResult: result,
+    }
+  }))
+
+  const classified = vectorResolved.map(({
+    source,
+    embeddingBrandMatch,
+    embeddingProductMatch,
+    baseResult,
+  }) => ({
+    source,
+    result: classifyDiscoveredCategory({
+      ...source,
+      context: {
+        canonical_brands: canonicalBrands,
+        canonical_products: canonicalProducts,
+        embedding_brand_match: embeddingBrandMatch,
+        embedding_product_match: embeddingProductMatch,
+        repeated_normalized_label_count: normalizedLabelCounts.get(baseResult.normalized_label) ?? 1,
+        repeated_within_shop_label_count:
+          normalizedLabelCountsByShop.get(`${getOrigin(source.source_url)}::${baseResult.normalized_label}`) ?? 1,
+        repeated_signal_pair_count:
+          baseResult.brand_signal && baseResult.product_signal
+            ? repeatedSignalPairCounts.get(`${baseResult.brand_signal}::${baseResult.product_signal}`) ?? 1
+            : 1,
+      },
+    }),
+  }))
+
+  const diagnostics = buildClassificationDiagnostics(classified)
+
+  let normalizedSupplierRefsUpdated = 0
 
   if (classified.length > 0) {
     const { error: categoryError } = await supabase
@@ -406,6 +754,89 @@ export async function executeMissionCategoryClassificationStage(
       )
 
     if (classificationError) throw new Error(classificationError.message)
+
+    normalizedSupplierRefsUpdated = await refreshSupplierClassificationRefs(
+      supabase,
+      parsed.mission_id,
+    )
+  }
+
+  const strategyInput = RollupCategoryStrategySchema.safeParse({ mission_id: parsed.mission_id })
+  const categoryStrategy = strategyInput.success
+    ? rollupCategoryStrategy(
+        classified.map(({ source, result }) => ({
+          mission_id: source.mission_id,
+          source_category_id: source.id,
+          source_url: source.source_url,
+          raw_label: source.raw_label,
+          normalized_label: result.normalized_label,
+          canonical_brand: result.brand_signal,
+          canonical_product_type: result.product_signal,
+          display_label: result.display_label,
+          classification_status: result.classification_status,
+          classification_confidence: result.classification_confidence,
+        })),
+      )
+    : []
+  await recordMissionStageEvent(supabase, {
+    missionId: parsed.mission_id,
+    stage: 'classifying_categories',
+    eventName: 'worker_classification_strategy_rolled_up',
+    diagnostics: {
+      group_count: categoryStrategy.length,
+      multi_shop_group_count: categoryStrategy.filter((group) => group.shop_origins.length > 1).length,
+      multi_mission_group_count: categoryStrategy.filter((group) => group.mission_ids.length > 1).length,
+      top_group_key: categoryStrategy[0]?.group_key ?? null,
+      groups: categoryStrategy.slice(0, 25),
+    },
+  })
+
+  try {
+    await writeAgentRunArtifact('classification', parsed.mission_id, startedAt, {
+      finished_at: new Date().toISOString(),
+      mission_status: 'completed',
+      pending_reviews_count: classified.filter(
+        ({ result }) => result.classification_status === 'needs_review',
+      ).length,
+      normalized_supplier_refs_updated: normalizedSupplierRefsUpdated,
+      category_strategy: {
+        group_count: categoryStrategy.length,
+        groups: categoryStrategy,
+      },
+      thresholds_used: classified[0]?.result.evidence.thresholds ?? null,
+      diagnostics,
+      categories: classified.map(({ source, result }) => ({
+        source_category_id: source.id,
+        source_url: source.source_url,
+        shop_origin: getOrigin(source.source_url),
+        raw_label: source.raw_label,
+        normalized_input_label: cleanupCategoryText(source.raw_label),
+        category_path: source.category_path,
+        normalized_output_label: result.normalized_label,
+        canonical_brand: result.brand_signal,
+        canonical_product_type: result.product_signal,
+        classification_status: result.classification_status,
+        classification_confidence: result.classification_confidence,
+        classification_method: result.classification_method,
+        acceptance_reason:
+          result.classification_status === 'auto_accepted'
+            ? result.evidence.decision_reason
+            : null,
+        review_reason:
+          result.classification_status === 'needs_review'
+            ? result.evidence.decision_reason
+            : null,
+        decision_reason_text: result.evidence.decision_reason_text,
+        dedupe_signals: {
+          repeated_within_mission_label: result.evidence.repeated_within_mission_label,
+          repeated_within_shop_label: result.evidence.repeated_within_shop_label,
+          repeated_signal_pair: result.evidence.repeated_signal_pair,
+        },
+        evidence: result.evidence,
+      })),
+    })
+  } catch (error) {
+    console.error('Failed to write classification artifact', error)
   }
 
   const reviewRequired = classified.filter(
@@ -422,6 +853,7 @@ export async function executeMissionCategoryClassificationStage(
     total_categories_processed: classified.length,
     auto_accepted_categories: classified.length - reviewRequired,
     review_required_categories: reviewRequired,
+    normalized_supplier_refs_updated: normalizedSupplierRefsUpdated,
     pending_reviews_count: reviewRequired,
     mission_status: missionStatus,
   }
@@ -695,9 +1127,20 @@ export async function executeMissionStage(
               supabase,
               RunMissionCategoryClassificationSchema.parse(payload),
             )
-          : (() => {
-              throw new Error('Only scrape discovery and classification missions are supported.')
-            })()
+          : stage === 'matching'
+            ? await executeMissionMatchingStage(
+                supabase,
+                RunMissionMatchingSchema.parse(payload),
+              )
+            : stage === 'suggestion_generation'
+              ? await executeOutreachSuggestionsStage(
+                  supabase,
+                  GenerateOutreachSuggestionsSchema.parse(payload),
+                )
+              : await executeInboundOfferParsingStage(
+                  supabase,
+                  ParseInboundOffersSchema.parse(payload),
+                )
 
     if (missionId) {
       await recordMissionStageEvent(supabase, {

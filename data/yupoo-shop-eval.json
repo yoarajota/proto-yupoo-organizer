@@ -5,57 +5,125 @@
       "id": "west42",
       "url": "https://west42.x.yupoo.com/",
       "expectations": {
-        "min_categories": 1
+        "min_categories": 1,
+        "expected_labels": [
+          "Thorium/Maicai/Down Jacket",
+          "Ca*har*t WIP",
+          "Beta AR/Beta SV"
+        ],
+        "expected_brands": [
+          "arc-teryx",
+          "carhartt-wip"
+        ]
       },
-      "notes": "User-provided baseline shop."
+      "notes": "User-provided baseline shop. Labels live-observed 2026-05-11; loop-only, never CI."
     },
     {
       "id": "000-leo",
       "url": "https://000-leo.x.yupoo.com/",
       "expectations": {
-        "min_categories": 1
+        "min_categories": 1,
+        "expected_labels": [
+          "🔥P----------PRADA 普拉达",
+          "Louis Vuitton /LV",
+          "GUCCI 古驰"
+        ],
+        "expected_brands": [
+          "prada",
+          "louis-vuitton",
+          "gucci"
+        ]
       },
-      "notes": "User-provided baseline shop."
+      "notes": "User-provided baseline shop. Labels re-pinned to live strings 2026-09-15 (was frozen May strings); loop-only, never CI."
     },
     {
       "id": "yolo66",
       "url": "https://yolo66.x.yupoo.com/albums",
       "expectations": {
-        "min_categories": 1
+        "min_categories": 1,
+        "expected_labels": [
+          "Air Jordan",
+          "5A Batch AJ3 RETRO",
+          "Adidas"
+        ],
+        "expected_brands": [
+          "jordan",
+          "adidas"
+        ]
       },
-      "notes": "User-provided baseline shop with albums seed URL."
+      "notes": "User-provided baseline shop with albums seed URL. Labels live-observed 2026-05-11; loop-only, never CI."
     },
     {
       "id": "tmf001",
       "url": "https://tmf001.x.yupoo.com/albums",
       "expectations": {
-        "min_categories": 1
+        "min_categories": 1,
+        "expected_labels": [
+          "AIR JORDAN 1",
+          "ARCTERYX",
+          "Balenciaga"
+        ],
+        "expected_brands": [
+          "jordan",
+          "arc-teryx",
+          "balenciaga"
+        ]
       },
-      "notes": "User-provided baseline shop with albums seed URL."
+      "notes": "User-provided baseline shop with albums seed URL. Labels live-observed 2026-05-11; loop-only, never CI."
     },
     {
       "id": "adam-factory",
       "url": "https://adam-factory.x.yupoo.com/",
       "expectations": {
-        "min_categories": 1
+        "min_categories": 1,
+        "expected_labels": [
+          "Air+ Jordan",
+          "Arc'+teryx",
+          "CDG"
+        ],
+        "expected_brands": [
+          "jordan",
+          "arc-teryx",
+          "comme-des-gar-ons"
+        ]
       },
-      "notes": "User-provided baseline shop."
+      "notes": "User-provided baseline shop. Labels live-observed 2026-05-11; loop-only, never CI."
     },
     {
       "id": "horizonlux",
       "url": "https://horizonlux.x.yupoo.com/",
       "expectations": {
-        "min_categories": 1
+        "min_categories": 1,
+        "expected_labels": [
+          "A*CNE STUDIOS",
+          "N*KE",
+          "L*V SHOES"
+        ],
+        "expected_brands": [
+          "acne-studios",
+          "nike",
+          "lv"
+        ]
       },
-      "notes": "User-provided baseline shop."
+      "notes": "User-provided baseline shop. Labels live-observed 2026-05-11; loop-only, never CI."
     },
     {
       "id": "andyunion",
       "url": "https://andyunion.x.yupoo.com/",
       "expectations": {
-        "min_categories": 1
+        "min_categories": 1,
+        "expected_labels": [
+          "Air// Jordan",
+          "PR//ADA",
+          "Gu//cci"
+        ],
+        "expected_brands": [
+          "jordan",
+          "prada",
+          "gucci"
+        ]
       },
-      "notes": "User-provided baseline shop."
+      "notes": "User-provided baseline shop. Labels live-observed 2026-05-11; loop-only, never CI."
     }
   ]
 }

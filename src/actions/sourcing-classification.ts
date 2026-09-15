@@ -1,16 +1,8 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { writeAgentRunArtifact } from '@/lib/agent-logs'
+import { executeMissionCategoryClassificationStage } from '@/lib/mission-stage-runner'
 import { enqueueMissionStage } from '@/lib/mission-queue'
-import {
-  buildCatalogEmbedding,
-  CATALOG_EMBEDDING_BRAND_THRESHOLD,
-  CATALOG_EMBEDDING_PRODUCT_THRESHOLD,
-  stripCatalogSignal,
-  type CatalogEmbeddingEntityType,
-  type CatalogEmbeddingMatch,
-} from '@/lib/catalog-embeddings'
 import { createClient } from '@/lib/supabase/server'
 import {
   ReviewMissionCategoryClassificationSchema,
@@ -18,14 +10,17 @@ import {
   type ReviewMissionCategoryClassificationValues,
   type RunMissionCategoryClassificationValues,
 } from '@/lib/schemas/sourcing-classification'
+import { normalizeBrandSignal, normalizeProductSignal } from '@/lib/yupoo/classification'
 import {
-  classifyDiscoveredCategory,
-  cleanupCategoryText,
-  normalizeBrandSignal,
-  normalizeProductSignal,
-} from '@/lib/yupoo/classification'
+  attachSuggestedReviewAliases,
+  buildKnownAliasForms,
+  groupMissionCategoryReviewItems,
+  toPendingCategoryReviewRows,
+  toReviewDecisions,
+} from '@/lib/mission-category-review'
+import { z } from 'zod'
+import { refreshSupplierClassificationRefs } from '@/lib/yupoo/supplier-refs'
 import type { CanonicalBrand, CanonicalProduct } from '@/lib/yupoo/category-config'
-import type { Database, Json } from '@/types/database'
 
 type CategoryRow = {
   id: string
@@ -39,20 +34,8 @@ type CategoryRow = {
   classification_confidence: number | null
 }
 
-type ClassificationSourceRow = {
-  id: string
-  mission_id: string
-  source_url: string
-  category_path: string[]
-  raw_label: string
-}
-
-type ClassifiedRow = {
-  source: ClassificationSourceRow
-  result: ReturnType<typeof classifyDiscoveredCategory>
-}
-
 type BrandAliasRow = {
+  id: string
   slug: string
   name: string
   brand_aliases?: { alias: string }[] | null
@@ -61,17 +44,6 @@ type BrandAliasRow = {
 type ProductTypeRow = {
   slug: string
   name: string
-}
-
-type CatalogEmbeddingRpcMatch =
-  Database['public']['Functions']['match_catalog_embeddings']['Returns'][number]
-
-function getOrigin(url: string) {
-  try {
-    return new URL(url).origin
-  } catch {
-    return url
-  }
 }
 
 function buildDisplayLabel(brand: string | null, product: string | null, fallback: string) {
@@ -109,172 +81,6 @@ function toCanonicalProducts(rows: ProductTypeRow[]): CanonicalProduct[] {
     display: productType.name,
     aliases: Array.from(new Set([productType.name, productType.slug])),
   }))
-}
-
-function toCatalogEmbeddingMatch(
-  row: CatalogEmbeddingRpcMatch | null | undefined,
-  threshold: number,
-): CatalogEmbeddingMatch | null {
-  if (!row?.canonical_slug || !row.entity_id || !row.entity_type || !row.source_text) return null
-
-  return {
-    entity_type: row.entity_type as CatalogEmbeddingEntityType,
-    entity_id: row.entity_id,
-    canonical_slug: row.canonical_slug,
-    canonical_name: row.canonical_name ?? row.canonical_slug,
-    source_text: row.source_text,
-    similarity: Number(row.similarity ?? 0),
-    threshold,
-  }
-}
-
-async function fetchCatalogEmbeddingMatch(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  input: {
-    text: string
-    entityTypes: CatalogEmbeddingEntityType[]
-    threshold: number
-  },
-) {
-  const embedding = buildCatalogEmbedding(input.text)
-  const { data, error } = await supabase.rpc('match_catalog_embeddings', {
-    query_embedding: embedding.pgvector,
-    entity_types: input.entityTypes,
-    match_threshold: input.threshold,
-    match_count: 1,
-  })
-
-  if (error) throw new Error(error.message)
-
-  return toCatalogEmbeddingMatch((data ?? [])[0] as CatalogEmbeddingRpcMatch | undefined, input.threshold)
-}
-
-function incrementBucket(bucket: Record<string, number>, key: string | null | undefined) {
-  const resolvedKey = key || 'unknown'
-  bucket[resolvedKey] = (bucket[resolvedKey] ?? 0) + 1
-}
-
-function buildClassificationDiagnostics(classified: ClassifiedRow[]) {
-  const uniqueNormalizedLabels = new Set<string>()
-  const duplicateLabelsByMission = new Map<string, number>()
-  const duplicateLabelsByShop = new Map<string, number>()
-  const autoAcceptedByMethod: Record<string, number> = {}
-  const autoAcceptedByReason: Record<string, number> = {}
-  const needsReviewByReason: Record<string, number> = {}
-
-  classified.forEach(({ source, result }) => {
-    uniqueNormalizedLabels.add(result.normalized_label)
-
-    const repeatedLabelCount = Number(result.evidence.repeated_normalized_label_count ?? 1)
-    const repeatedWithinShopCount = Number(result.evidence.repeated_within_shop_label_count ?? 1)
-    const decisionReason = String(result.evidence.decision_reason ?? 'unknown')
-
-    if (repeatedLabelCount >= 2) {
-      duplicateLabelsByMission.set(
-        result.normalized_label,
-        Math.max(duplicateLabelsByMission.get(result.normalized_label) ?? 0, repeatedLabelCount),
-      )
-    }
-
-    if (repeatedWithinShopCount >= 2) {
-      const shopKey = `${getOrigin(source.source_url)}::${result.normalized_label}`
-      duplicateLabelsByShop.set(
-        shopKey,
-        Math.max(duplicateLabelsByShop.get(shopKey) ?? 0, repeatedWithinShopCount),
-      )
-    }
-
-    if (result.classification_status === 'auto_accepted') {
-      incrementBucket(autoAcceptedByMethod, result.classification_method)
-      incrementBucket(autoAcceptedByReason, decisionReason)
-      return
-    }
-
-    if (result.classification_status === 'needs_review') {
-      incrementBucket(needsReviewByReason, decisionReason)
-    }
-  })
-
-  return {
-    total_categories_scanned: classified.length,
-    unique_normalized_labels: uniqueNormalizedLabels.size,
-    duplicate_labels_by_mission: Array.from(duplicateLabelsByMission.entries()).map(([label, count]) => ({
-      normalized_label: label,
-      occurrences: count,
-    })),
-    duplicate_labels_by_shop: Array.from(duplicateLabelsByShop.entries()).map(([key, count]) => {
-      const [shop_origin, normalized_label] = key.split('::')
-      return {
-        shop_origin,
-        normalized_label,
-        occurrences: count,
-      }
-    }),
-    auto_accepted_count_by_method: autoAcceptedByMethod,
-    auto_accepted_count_by_reason: autoAcceptedByReason,
-    needs_review_count_by_reason: needsReviewByReason,
-  }
-}
-
-async function refreshSupplierClassificationRefs(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  missionId: string,
-) {
-  const { data: suppliers, error: suppliersError } = await supabase
-    .from('discovered_suppliers')
-    .select('id, source_url, category_refs, normalized_category_refs')
-    .eq('mission_id', missionId)
-
-  if (suppliersError) throw new Error(suppliersError.message)
-
-  const { data: categories, error: categoriesError } = await supabase
-    .from('discovered_categories')
-    .select(
-      'id, source_url, brand_signal, product_signal, classification_status, classification_confidence',
-    )
-    .eq('mission_id', missionId)
-
-  if (categoriesError) throw new Error(categoriesError.message)
-
-  const categoryRows = (categories ?? []) as Array<{
-    source_url: string
-    brand_signal: string | null
-    product_signal: string | null
-    classification_status: 'auto_accepted' | 'needs_review' | 'reviewed'
-  }>
-
-  const updates = (suppliers ?? []).map((supplier) => {
-    const supplierOrigin = getOrigin(supplier.source_url)
-    const refs = new Set<string>()
-
-    categoryRows
-      .filter((category) => getOrigin(category.source_url) === supplierOrigin)
-      .forEach((category) => {
-        if (category.product_signal) refs.add(category.product_signal)
-        if (
-          category.brand_signal &&
-          (category.classification_status === 'auto_accepted' ||
-            category.classification_status === 'reviewed')
-        ) {
-          refs.add(category.brand_signal)
-        }
-      })
-
-    return {
-      id: supplier.id,
-      normalized_category_refs: Array.from(refs),
-    }
-  })
-
-  if (updates.length === 0) return 0
-
-  const { error: updateError } = await supabase
-    .from('discovered_suppliers')
-    .upsert(updates as never, { onConflict: 'id' })
-
-  if (updateError) throw new Error(updateError.message)
-
-  return updates.filter((update) => update.normalized_category_refs.length > 0).length
 }
 
 async function updateMissionStatusFromPendingReviews(
@@ -325,304 +131,51 @@ export async function runMissionCategoryClassification(input: RunMissionCategory
   return result
 }
 
-export async function executeMissionCategoryClassificationDirect(input: RunMissionCategoryClassificationValues) {
-  const parsed = RunMissionCategoryClassificationSchema.safeParse(input)
+export async function executeMissionCategoryClassificationDirect(input: RunMissionCategoryClassificationValues) {  const parsed = RunMissionCategoryClassificationSchema.safeParse(input)
   if (!parsed.success) return { data: null, error: { message: 'Invalid classification payload.' } }
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { data: null, error: { message: 'Unauthorized' } }
 
-  const startedAt = new Date().toISOString()
-
-  const { error: missionStatusError } = await supabase
-    .from('sourcing_missions')
-    .update({ status: 'classifying_categories' })
-    .eq('id', parsed.data.mission_id)
-
-  if (missionStatusError) return { data: null, error: { message: missionStatusError.message } }
-
-  const { error: stageInsertError } = await supabase
-    .from('sourcing_mission_stage_metrics')
-    .insert({
-      mission_id: parsed.data.mission_id,
-      stage_name: 'classifying_categories',
-      started_at: startedAt,
-    })
-
-  if (stageInsertError) return { data: null, error: { message: stageInsertError.message } }
-
-  const { data: discoveredCategories, error: categoriesError } = await supabase
-    .from('discovered_categories')
-    .select('id, mission_id, source_url, category_path, raw_label')
-    .eq('mission_id', parsed.data.mission_id)
-
-  if (categoriesError) return { data: null, error: { message: categoriesError.message } }
-
-  const { data: brandRows, error: brandRowsError } = await supabase
-    .from('brands')
-    .select('slug, name, brand_aliases(alias)')
-    .order('name')
-
-  if (brandRowsError) return { data: null, error: { message: brandRowsError.message } }
-
-  const { data: productTypeRows, error: productTypeRowsError } = await supabase
-    .from('product_types')
-    .select('slug, name')
-    .order('name')
-
-  if (productTypeRowsError) return { data: null, error: { message: productTypeRowsError.message } }
-
-  const canonicalBrands = (brandRows ?? []).length > 0
-    ? toCanonicalBrands((brandRows ?? []) as BrandAliasRow[])
-    : undefined
-  const canonicalProducts = (productTypeRows ?? []).length > 0
-    ? toCanonicalProducts((productTypeRows ?? []) as ProductTypeRow[])
-    : undefined
-
-  const categoryRows = (discoveredCategories ?? []) as ClassificationSourceRow[]
-
-  const normalizedLabelCounts = new Map<string, number>()
-  const normalizedLabelCountsByShop = new Map<string, number>()
-  const repeatedSignalPairCounts = new Map<string, number>()
-
-  const ruleOnlyClassified = categoryRows.map((category) => ({
-    source: category,
-    ruleResult: classifyDiscoveredCategory({
-      ...category,
-      context: {
-        canonical_brands: canonicalBrands,
-        canonical_products: canonicalProducts,
-      },
-    }),
-  }))
-
-  const vectorResolved = await Promise.all(ruleOnlyClassified.map(async ({ source, ruleResult }) => {
-    const needsBrandMatch = !ruleResult.brand_signal
-    const needsProductMatch = !ruleResult.product_signal
-
-    let embeddingBrandMatch: CatalogEmbeddingMatch | null = null
-    let embeddingProductMatch: CatalogEmbeddingMatch | null = null
-
-    if (needsBrandMatch || needsProductMatch) {
-      ;[embeddingBrandMatch, embeddingProductMatch] = await Promise.all([
-        needsBrandMatch
-          ? fetchCatalogEmbeddingMatch(supabase, {
-              text: stripCatalogSignal(ruleResult.normalized_label, ruleResult.product_signal),
-              entityTypes: ['brand', 'brand_alias'],
-              threshold: CATALOG_EMBEDDING_BRAND_THRESHOLD,
-            })
-          : Promise.resolve(null),
-        needsProductMatch
-          ? fetchCatalogEmbeddingMatch(supabase, {
-              text: stripCatalogSignal(ruleResult.normalized_label, ruleResult.brand_signal),
-              entityTypes: ['product_type'],
-              threshold: CATALOG_EMBEDDING_PRODUCT_THRESHOLD,
-            })
-          : Promise.resolve(null),
-      ])
-    }
-
-    const result = classifyDiscoveredCategory({
-      ...source,
-      context: {
-        canonical_brands: canonicalBrands,
-        canonical_products: canonicalProducts,
-        embedding_brand_match: embeddingBrandMatch,
-        embedding_product_match: embeddingProductMatch,
-      },
-    })
-
-    normalizedLabelCounts.set(
-      result.normalized_label,
-      (normalizedLabelCounts.get(result.normalized_label) ?? 0) + 1,
-    )
-
-    const shopLabelKey = `${getOrigin(source.source_url)}::${result.normalized_label}`
-    normalizedLabelCountsByShop.set(
-      shopLabelKey,
-      (normalizedLabelCountsByShop.get(shopLabelKey) ?? 0) + 1,
-    )
-
-    if (result.brand_signal && result.product_signal) {
-      const signalPairKey = `${result.brand_signal}::${result.product_signal}`
-      repeatedSignalPairCounts.set(
-        signalPairKey,
-        (repeatedSignalPairCounts.get(signalPairKey) ?? 0) + 1,
-      )
-    }
-
-    return {
-      source,
-      embeddingBrandMatch,
-      embeddingProductMatch,
-      baseResult: result,
-    }
-  }))
-
-  const classified = vectorResolved.map(({
-    source,
-    embeddingBrandMatch,
-    embeddingProductMatch,
-    baseResult,
-  }) => ({
-    source,
-    result: classifyDiscoveredCategory({
-      ...source,
-      context: {
-        canonical_brands: canonicalBrands,
-        canonical_products: canonicalProducts,
-        embedding_brand_match: embeddingBrandMatch,
-        embedding_product_match: embeddingProductMatch,
-        repeated_normalized_label_count: normalizedLabelCounts.get(baseResult.normalized_label) ?? 1,
-        repeated_within_shop_label_count:
-          normalizedLabelCountsByShop.get(`${getOrigin(source.source_url)}::${baseResult.normalized_label}`) ?? 1,
-        repeated_signal_pair_count:
-          baseResult.brand_signal && baseResult.product_signal
-            ? repeatedSignalPairCounts.get(`${baseResult.brand_signal}::${baseResult.product_signal}`) ?? 1
-            : 1,
-      },
-    }),
-  }))
-
-  const diagnostics = buildClassificationDiagnostics(classified)
-
-  if (classified.length > 0) {
-    const { error: discoveredUpdateError } = await supabase
-      .from('discovered_categories')
-      .upsert(
-        classified.map(({ source, result }) => ({
-          id: source.id,
-          mission_id: source.mission_id,
-          source_url: source.source_url,
-          category_path: source.category_path,
-          raw_label: source.raw_label,
-          normalized_label: result.normalized_label,
-          brand_signal: result.brand_signal,
-          product_signal: result.product_signal,
-          classification_status: result.classification_status,
-          classification_confidence: result.classification_confidence,
-          classification_method: result.classification_method,
-        })),
-        { onConflict: 'id' },
-      )
-
-    if (discoveredUpdateError) return { data: null, error: { message: discoveredUpdateError.message } }
-
-    const { error: normalizedUpsertError } = await supabase
-      .from('mission_category_classifications')
-      .upsert(
-        classified.map(({ source, result }) => ({
-          mission_id: source.mission_id,
-          source_category_id: source.id,
-          canonical_brand: result.brand_signal,
-          canonical_product_type: result.product_signal,
-          display_label: result.display_label,
-          evidence: result.evidence as Json,
-          classification_status: result.classification_status,
-          classification_confidence: result.classification_confidence,
-          classification_method: result.classification_method,
-        })),
-        { onConflict: 'mission_id,source_category_id' },
-      )
-
-    if (normalizedUpsertError) return { data: null, error: { message: normalizedUpsertError.message } }
-  }
-
-  let normalizedSupplierRefsUpdated = 0
-  let missionStatus = 'classifying_categories'
-  let pendingReviewsCount = 0
-
   try {
-    normalizedSupplierRefsUpdated = await refreshSupplierClassificationRefs(
-      supabase,
-      parsed.data.mission_id,
-    )
-
-    const statusResult = await updateMissionStatusFromPendingReviews(
-      supabase,
-      parsed.data.mission_id,
-    )
-    missionStatus = statusResult.mission_status
-    pendingReviewsCount = statusResult.pending_reviews_count
+    const data = await executeMissionCategoryClassificationStage(supabase, parsed.data)
+    revalidatePath('/workspace')
+    return { data, error: null }
   } catch (error) {
     return {
       data: null,
       error: { message: error instanceof Error ? error.message : 'Classification refresh failed.' },
     }
   }
+}
 
-  const finishedAt = new Date().toISOString()
+function isMissionRunInline() {
+  const raw = process.env.MISSION_RUN_INLINE?.trim().toLowerCase()
+  if (raw === 'true') return true
+  if (raw === 'false') return false
+  return process.env.NODE_ENV === 'development'
+}
 
-  try {
-    await writeAgentRunArtifact('classification', parsed.data.mission_id, startedAt, {
-      finished_at: finishedAt,
-      mission_status: missionStatus,
-      pending_reviews_count: pendingReviewsCount,
-      normalized_supplier_refs_updated: normalizedSupplierRefsUpdated,
-      thresholds_used: classified[0]?.result.evidence.thresholds ?? null,
-      diagnostics,
-      categories: classified.map(({ source, result }) => ({
-        source_category_id: source.id,
-        source_url: source.source_url,
-        shop_origin: getOrigin(source.source_url),
-        raw_label: source.raw_label,
-        normalized_input_label: cleanupCategoryText(source.raw_label),
-        category_path: source.category_path,
-        normalized_output_label: result.normalized_label,
-        canonical_brand: result.brand_signal,
-        canonical_product_type: result.product_signal,
-        classification_status: result.classification_status,
-        classification_confidence: result.classification_confidence,
-        classification_method: result.classification_method,
-        acceptance_reason:
-          result.classification_status === 'auto_accepted'
-            ? result.evidence.decision_reason
-            : null,
-        review_reason:
-          result.classification_status === 'needs_review'
-            ? result.evidence.decision_reason
-            : null,
-        decision_reason_text: result.evidence.decision_reason_text,
-        dedupe_signals: {
-          repeated_within_mission_label: result.evidence.repeated_within_mission_label,
-          repeated_within_shop_label: result.evidence.repeated_within_shop_label,
-          repeated_signal_pair: result.evidence.repeated_signal_pair,
-        },
-        evidence: result.evidence,
-      })),
-    })
-  } catch (error) {
-    console.error('Failed to write classification artifact', error)
+function isMissionWorkerConfigured() {
+  return Boolean(process.env.MISSION_WORKER_URL && process.env.MISSION_WORKER_TOKEN)
+}
+
+export async function runMissionCategoryClassificationWithFallback(input: RunMissionCategoryClassificationValues) {
+  // The queue processor reports per-message stage failures as HTTP 200, so a
+  // locally-broken worker is indistinguishable from success at enqueue time.
+  // Inline mode therefore bypasses the queue entirely instead of probing it.
+  if (isMissionRunInline()) {
+    return executeMissionCategoryClassificationDirect(input)
   }
-
-  const { error: stageFinishError } = await supabase
-    .from('sourcing_mission_stage_metrics')
-    .update({ finished_at: finishedAt })
-    .eq('mission_id', parsed.data.mission_id)
-    .eq('stage_name', 'classifying_categories')
-    .eq('started_at', startedAt)
-
-  if (stageFinishError) return { data: null, error: { message: stageFinishError.message } }
-
-  revalidatePath('/workspace')
-
-  return {
-    data: {
-      mission_id: parsed.data.mission_id,
-      total_categories_processed: classified.length,
-      auto_accepted_categories: classified.filter(
-        ({ result }) => result.classification_status === 'auto_accepted',
-      ).length,
-      review_required_categories: classified.filter(
-        ({ result }) => result.classification_status === 'needs_review',
-      ).length,
-      normalized_supplier_refs_updated: normalizedSupplierRefsUpdated,
-      pending_reviews_count: pendingReviewsCount,
-      mission_status: missionStatus,
-    },
-    error: null,
+  if (isMissionWorkerConfigured()) {
+    const queued = await runMissionCategoryClassification(input)
+    if (queued.error && queued.data?.processor_invoked === false) {
+      return executeMissionCategoryClassificationDirect(input)
+    }
+    return queued
   }
+  return executeMissionCategoryClassificationDirect(input)
 }
 
 export async function reviewMissionCategoryClassification(
@@ -651,7 +204,7 @@ export async function reviewMissionCategoryClassification(
     await Promise.all([
       supabase
         .from('brands')
-        .select('slug, name, brand_aliases(alias)')
+        .select('id, slug, name, brand_aliases(alias)')
         .order('name'),
       supabase
         .from('product_types')
@@ -739,6 +292,25 @@ export async function reviewMissionCategoryClassification(
       )
 
     if (normalizedUpsertError) return { data: null, error: { message: normalizedUpsertError.message } }
+
+    if (brandSignal) {
+      const brandRow = ((brandRows ?? []) as BrandAliasRow[]).find((row) => row.slug === brandSignal)
+      const variant = category.raw_label.trim()
+      const alreadyCurated = !brandRow || !variant
+        ? true
+        : [brandRow.name, brandRow.slug, ...(brandRow.brand_aliases ?? []).map((alias) => alias.alias)]
+          .some((known) => known.toLowerCase() === variant.toLowerCase())
+
+      if (brandRow && variant && !alreadyCurated) {
+        // Alias learning is best-effort: the review already succeeded, so a
+        // conflicting or rejected alias write must not fail it.
+        await supabase.from('brand_aliases').insert({
+          brand_id: brandRow.id,
+          alias: variant,
+          created_by: user.id,
+        })
+      }
+    }
   }
 
   let normalizedSupplierRefsUpdated = 0
@@ -767,6 +339,73 @@ export async function reviewMissionCategoryClassification(
       pending_reviews_count: pendingReviewsCount,
       normalized_supplier_refs_updated: normalizedSupplierRefsUpdated,
       mission_status: missionStatus,
+    },
+    error: null,
+  }
+}
+
+export async function getMissionReviewQueue(input: { mission_id: string }) {
+  const parsed = z.object({ mission_id: z.string().uuid() }).safeParse(input)
+  if (!parsed.success) return { data: null, error: { message: 'Invalid review queue payload.' } }
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { data: null, error: { message: 'Unauthorized' } }
+
+  const { data: pendingRows, error: pendingError } = await supabase
+    .from('discovered_categories')
+    .select(
+      'id, mission_id, raw_label, normalized_label, brand_signal, product_signal, classification_confidence, classification_method, classification_status, preview_image_urls, source_url',
+    )
+    .eq('mission_id', parsed.data.mission_id)
+    .eq('classification_status', 'needs_review')
+
+  if (pendingError) return { data: null, error: { message: pendingError.message } }
+
+  const { data: reviewedRows, error: reviewedError } = await supabase
+    .from('mission_category_classifications')
+    .select('canonical_brand, evidence')
+    .eq('mission_id', parsed.data.mission_id)
+    .eq('classification_status', 'reviewed')
+
+  if (reviewedError) return { data: null, error: { message: reviewedError.message } }
+
+  const { data: brandRows, error: brandRowsError } = await supabase
+    .from('brands')
+    .select('name, slug, brand_aliases(alias)')
+
+  if (brandRowsError) return { data: null, error: { message: brandRowsError.message } }
+
+  const knownAliasForms = buildKnownAliasForms((brandRows ?? []) as BrandAliasRow[])
+
+  const decisions = toReviewDecisions(
+    ((reviewedRows ?? []) as Array<{ canonical_brand: string | null; evidence: unknown }>),
+  )
+
+  const reviewRows = toPendingCategoryReviewRows(
+    (pendingRows ?? []) as Array<{
+      id: string
+      mission_id: string
+      raw_label: string
+      normalized_label: string | null
+      brand_signal: string | null
+      product_signal: string | null
+      classification_confidence: number | null
+      classification_method: string | null
+      classification_status: string
+      preview_image_urls: string[] | null
+      source_url: string | null
+    }>,
+  )
+
+  const grouped = groupMissionCategoryReviewItems(reviewRows)[parsed.data.mission_id] ?? []
+  const groups = attachSuggestedReviewAliases(grouped, decisions, knownAliasForms)
+
+  return {
+    data: {
+      mission_id: parsed.data.mission_id,
+      groups,
+      decisions_considered: decisions.length,
     },
     error: null,
   }

@@ -50,7 +50,9 @@ describe('extractDiscoveryFromHtml', () => {
     expect(extracted.categories[0]?.raw_label).toBe('B4G$')
     expect(extracted.suppliers).toHaveLength(1)
     expect(extracted.suppliers[0]?.supplier_key).toBe('abcstore.x')
-    expect(extracted.suppliers[0]?.normalized_category_refs).toEqual([])
+    expect(extracted.suppliers[0]?.normalized_category_refs).toEqual(
+      expect.arrayContaining(['bags', 'lv', 'shoes']),
+    )
     expect(extracted.suppliers[0]?.category_refs).toEqual(
       expect.arrayContaining(['bags', 'lv', 'shoes']),
     )
@@ -73,6 +75,7 @@ describe('extractDiscoveryFromHtml', () => {
     expect(extracted.categories).toHaveLength(1)
     expect(extracted.suppliers).toHaveLength(1)
     expect(extracted.suppliers[0]?.category_refs.filter((ref) => ref === 'bags')).toHaveLength(1)
+    expect(extracted.suppliers[0]?.normalized_category_refs).toEqual(['bags'])
   })
 
   it('does not derive supplier refs from generic or numeric category path segments', () => {
@@ -637,5 +640,228 @@ describe('extractDiscoveryFromHtml', () => {
         confidence: 0.7,
       }),
     ])
+  })
+})
+
+describe('yupoo subcategory tuning', () => {
+  beforeEach(() => {
+    scrapeState.pages.clear()
+    scrapeState.processed = []
+  })
+
+  it('preserves ?isSubCate=true when fetching sub-categories instead of 404ing the canonical url', async () => {
+    scrapeState.pages.set(
+      'https://yolo66.x.yupoo.com/categories',
+      `
+        <div class="categories__box-left">
+          <a href="/categories/5188236" title="Luxury">1</a>
+          <a href="/categories/943469?isSubCate=true" title="Clothes Yupoo">2</a>
+        </div>
+      `,
+    )
+    scrapeState.pages.set(
+      'https://yolo66.x.yupoo.com/categories/943469?isSubCate=true',
+      `
+        <div class="categories__box-left">
+          <a href="/categories/943469?isSubCate=true" title="Clothes Yupoo">2</a>
+        </div>
+        <div class="categories__children">
+          <a class="album__main" href="/albums/1?uid=1&amp;isSubCate=false&amp;referrercate=943469">
+            <img data-type="photo" data-src="https://photo.yupoo.com/yolo66/abc123/small.jpg" />
+          </a>
+        </div>
+      `,
+    )
+    scrapeState.pages.set(
+      'https://yolo66.x.yupoo.com/categories/5188236',
+      '<div class="categories__box-left"><a href="/categories/5188236" title="Luxury">1</a></div>',
+    )
+
+    const extracted = await scrapeYupooDiscovery('https://yolo66.x.yupoo.com/', 3, makeFetch())
+
+    expect(scrapeState.processed).toContain('https://yolo66.x.yupoo.com/categories/943469?isSubCate=true')
+    expect(scrapeState.processed).not.toContain('https://yolo66.x.yupoo.com/categories/943469')
+    expect(extracted.pages).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          url: 'https://yolo66.x.yupoo.com/categories/943469?isSubCate=true',
+          status: 'fetched',
+        }),
+      ]),
+    )
+    expect(extracted.categories).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          source_url: 'https://yolo66.x.yupoo.com/categories/943469?isSubCate=true',
+          raw_label: 'Clothes Yupoo',
+          preview_image_status: 'fetched',
+          preview_image_urls: ['https://photo.yupoo.com/yolo66/abc123/small.jpg'],
+        }),
+      ]),
+    )
+  })
+
+  it('decodes html entities in hrefs before normalizing discovery urls', async () => {
+    scrapeState.pages.set(
+      'https://yolo66.x.yupoo.com/categories',
+      `
+        <div class="categories__box-left">
+          <a href="/categories/943471?isSubCate&#x3D;true&amp;navSource&#x3D;custom" title="Luxury Shoes">2</a>
+        </div>
+      `,
+    )
+    scrapeState.pages.set(
+      'https://yolo66.x.yupoo.com/categories/943471?isSubCate=true',
+      '<div class="categories__box-left"><a href="/categories/943471?isSubCate=true" title="Luxury Shoes">2</a></div>',
+    )
+
+    const extracted = await scrapeYupooDiscovery('https://yolo66.x.yupoo.com/', 2, makeFetch())
+
+    expect(scrapeState.processed).toContain('https://yolo66.x.yupoo.com/categories/943471?isSubCate=true')
+    expect(extracted.pages).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          url: 'https://yolo66.x.yupoo.com/categories/943471?isSubCate=true',
+          status: 'fetched',
+        }),
+      ]),
+    )
+  })
+
+  it('attributes index album covers to owning sub-categories via referrercate', () => {
+    const extracted = extractDiscoveryFromHtml(
+      `
+        <div class="categories__box-left">
+          <a href="/categories/5188236" title="Luxury">1</a>
+          <a href="/categories/943469?isSubCate=true" title="Clothes Yupoo">2</a>
+        </div>
+        <div class="categories__children">
+          <a class="album__main" href="/albums/111?uid=1&amp;isSubCate=false&amp;referrercate=943469">
+            <img data-type="photo" data-src="https://photo.yupoo.com/yolo66/cover1/small.jpg" />
+          </a>
+        </div>
+        <div class="categories__children">
+          <a class="album__main" href="/albums/222?uid=1&amp;isSubCate=false&amp;referrercate=">
+            <img data-type="photo" data-src="https://photo.yupoo.com/yolo66/uncategorized/small.jpg" />
+          </a>
+        </div>
+      `,
+      'https://yolo66.x.yupoo.com/categories',
+      '2026-04-27T00:00:00.000Z',
+    )
+
+    expect(extracted.categories).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          source_url: 'https://yolo66.x.yupoo.com/categories/943469?isSubCate=true',
+          preview_image_status: 'discovered_only',
+          preview_image_urls: ['https://photo.yupoo.com/yolo66/cover1/small.jpg'],
+        }),
+        expect.objectContaining({
+          source_url: 'https://yolo66.x.yupoo.com/categories/5188236',
+          preview_image_urls: [],
+        }),
+      ]),
+    )
+  })
+
+  it('skips the junk uncategorized album bucket', async () => {
+    scrapeState.pages.set(
+      'https://west42.x.yupoo.com/categories',
+      `
+        <div class="categories__box-left">
+          <a href="/categories/0" title="Uncategorized album">0</a>
+          <a href="/categories/100" title="Bags">1</a>
+        </div>
+      `,
+    )
+    scrapeState.pages.set(
+      'https://west42.x.yupoo.com/categories/100',
+      '<div class="categories__box-left"><a href="/categories/100" title="Bags">1</a></div>',
+    )
+
+    const extracted = await scrapeYupooDiscovery('https://west42.x.yupoo.com/', 3, makeFetch())
+
+    expect(scrapeState.processed).not.toContain('https://west42.x.yupoo.com/categories/0')
+    expect(extracted.categories.every((category) => !category.source_url.endsWith('/categories/0'))).toBe(true)
+  })
+
+  it('follows index pagination links', async () => {
+    scrapeState.pages.set(
+      'https://tmf001.x.yupoo.com/categories',
+      `
+        <div class="categories__box-left">
+          <a href="/categories/100" title="Bags">1</a>
+        </div>
+        <a href="/categories?page&#x3D;2">Next</a>
+      `,
+    )
+    scrapeState.pages.set(
+      'https://tmf001.x.yupoo.com/categories/100',
+      '<div class="categories__box-left"><a href="/categories/100" title="Bags">1</a></div>',
+    )
+    scrapeState.pages.set(
+      'https://tmf001.x.yupoo.com/categories?page=2',
+      '<div class="categories__box-left"><a href="/categories/200" title="Shoes">2</a></div>',
+    )
+    scrapeState.pages.set(
+      'https://tmf001.x.yupoo.com/categories/200',
+      '<div class="categories__box-left"><a href="/categories/200" title="Shoes">2</a></div>',
+    )
+
+    const extracted = await scrapeYupooDiscovery('https://tmf001.x.yupoo.com/', 4, makeFetch())
+
+    expect(scrapeState.processed).toContain('https://tmf001.x.yupoo.com/categories?page=2')
+    expect(extracted.categories).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ source_url: 'https://tmf001.x.yupoo.com/categories/200' }),
+      ]),
+    )
+  })
+
+  it('preserves sidebar discovery order instead of alphabetical url order', async () => {
+    scrapeState.pages.set(
+      'https://west42.x.yupoo.com/categories',
+      `
+        <div class="categories__box-left">
+          <a href="/categories/300" title="Featured">1</a>
+          <a href="/categories/100" title="Bags">2</a>
+          <a href="/categories/200" title="Shoes">3</a>
+        </div>
+      `,
+    )
+    for (const id of ['100', '200', '300']) {
+      scrapeState.pages.set(
+        `https://west42.x.yupoo.com/categories/${id}`,
+        `<div class=\"categories__box-left\"><a href=\"/categories/${id}\" title=\"Cat ${id}\">1</a></div>`,
+      )
+    }
+
+    await scrapeYupooDiscovery('https://west42.x.yupoo.com/', 3, makeFetch())
+
+    expect(scrapeState.processed).toEqual([
+      'https://west42.x.yupoo.com/categories',
+      'https://west42.x.yupoo.com/categories/300',
+      'https://west42.x.yupoo.com/categories/100',
+    ])
+  })
+
+  it('merges query-bearing sidebar hrefs with their fetched page instead of duplicating', () => {
+    const extracted = extractDiscoveryFromHtml(
+      `
+        <div class="categories__box-left">
+          <a href="/categories/943469?isSubCate=true" title="Clothes Yupoo">2</a>
+          <a href="/categories/943469?isSubCate=true&amp;navSource=custom" title="Clothes Yupoo">2</a>
+        </div>
+      `,
+      'https://yolo66.x.yupoo.com/categories',
+      '2026-04-27T00:00:00.000Z',
+    )
+
+    const matches = extracted.categories.filter((category) =>
+      category.source_url.includes('/categories/943469'),
+    )
+    expect(matches).toHaveLength(1)
+    expect(matches[0]?.source_url).toBe('https://yolo66.x.yupoo.com/categories/943469?isSubCate=true')
   })
 })

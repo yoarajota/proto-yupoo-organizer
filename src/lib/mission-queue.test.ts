@@ -98,34 +98,25 @@ describe('enqueueMissionStage', () => {
     })
   })
 
-  it('allows the classification stage but still blocks later workflow stages', async () => {
-    const { supabase, missionUpdate } = makeSupabaseMock()
+  it('allows every workflow stage through the queue gate', async () => {
+    const { supabase } = makeSupabaseMock()
 
-    const classificationResult = await enqueueMissionStage(supabase as never, {
-      mission_id: '550e8400-e29b-41d4-a716-446655440000',
-      stage: 'classifying_categories',
-      payload: {},
-    })
+    const stages = [
+      ['classifying_categories', 'classification_queued'],
+      ['matching', 'matching_queued'],
+      ['suggestion_generation', 'outreach_queued'],
+      ['parse', 'parse_queued'],
+    ] as const
 
-    expect(classificationResult.error).toBeNull()
-    expect(classificationResult.data).toMatchObject({
-      stage: 'classifying_categories',
-      status: 'classification_queued',
-    })
-    expect(missionUpdate).toHaveBeenCalledWith(expect.objectContaining({
-      status: 'classification_queued',
-      current_stage: 'classifying_categories',
-    }))
+    for (const [stage, status] of stages) {
+      const result = await enqueueMissionStage(supabase as never, {
+        mission_id: '550e8400-e29b-41d4-a716-446655440000',
+        stage,
+        payload: {},
+      })
 
-    const matchingResult = await enqueueMissionStage(supabase as never, {
-      mission_id: '550e8400-e29b-41d4-a716-446655440000',
-      stage: 'matching',
-      payload: {},
-    })
-
-    expect(matchingResult).toEqual({
-      data: null,
-      error: { message: 'Only scrape discovery and classification missions are supported.' },
-    })
+      expect(result.error).toBeNull()
+      expect(result.data).toMatchObject({ stage, status })
+    }
   })
 })

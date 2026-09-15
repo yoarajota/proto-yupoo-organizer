@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import {
   AlertCircle,
   Bot,
@@ -12,10 +12,14 @@ import {
   Search,
 } from "lucide-react";
 import { deleteSourcingMission } from "@/actions/sourcing-missions";
-import { runMissionDiscovery } from "@/actions/sourcing-discovery";
-import { runMissionCategoryClassification } from "@/actions/sourcing-classification";
+import { runMissionDiscoveryWithFallback } from "@/actions/sourcing-discovery";
+import { runMissionCategoryClassificationWithFallback } from "@/actions/sourcing-classification";
 import type { BrandCatalogOption, CatalogOption } from "@/lib/catalog";
 import type { MissionRowType } from "@/lib/mission-category-review";
+import {
+  formatMissionError,
+  formatMissionStatusLabel,
+} from "@/lib/mission-display";
 import {
   Table,
   TableHeader,
@@ -63,16 +67,7 @@ function getExactCreatedTime(dateStr: string) {
 }
 
 function getStatusLabel(status: string) {
-  if (status === "created") return "Ready";
-  if (status === "discovery_queued") return "Queued";
-  if (status === "scanning") return "Scraping";
-  if (status === "completed") return "Scraped";
-  if (status === "failed_retrying" || status === "failed_terminal") return "Failed";
-
-  return status
-    .split("_")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
+  return formatMissionStatusLabel(status);
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -125,13 +120,29 @@ function MissionActionCell({
   canDelete?: boolean;
 }) {
   const [isPending, startTransition] = useTransition();
+  const inFlightRef = useRef(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const actionErrorCopy = actionError
+    ? formatMissionError({ message: actionError })
+    : null;
+  const missionErrorCopy = mission.last_error_message || mission.last_error_code
+    ? formatMissionError({
+        message: mission.last_error_message,
+        code: mission.last_error_code,
+      })
+    : null;
 
   const handleRunDiscovery = () => {
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
     startTransition(async () => {
       setActionError(null);
-      const result = await runMissionDiscovery({ mission_id: mission.id });
-      if (result.error) setActionError(result.error.message);
+      try {
+        const result = await runMissionDiscoveryWithFallback({ mission_id: mission.id });
+        if (result.error) setActionError(result.error.message);
+      } finally {
+        inFlightRef.current = false;
+      }
     });
   };
 
@@ -150,10 +161,16 @@ function MissionActionCell({
   };
 
   const handleRunClassification = () => {
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
     startTransition(async () => {
       setActionError(null);
-      const result = await runMissionCategoryClassification({ mission_id: mission.id });
-      if (result.error) setActionError(result.error.message);
+      try {
+        const result = await runMissionCategoryClassificationWithFallback({ mission_id: mission.id });
+        if (result.error) setActionError(result.error.message);
+      } finally {
+        inFlightRef.current = false;
+      }
     });
   };
 
@@ -166,7 +183,7 @@ function MissionActionCell({
   const canClassify = mission.status === "completed" || mission.status === "classifying_categories";
 
   return (
-    <div className="flex flex-col items-end gap-2">
+    <div className="flex flex-col gap-2 sm:items-end">
       {canScrape && (
         <Button
           size="sm"
@@ -175,7 +192,7 @@ function MissionActionCell({
           onClick={handleRunDiscovery}
         >
           {isPending
-            ? "Queueing..."
+            ? "Running..."
             : mission.status === "created"
               ? "Run Scrape"
               : "Retry Scrape"}
@@ -188,17 +205,17 @@ function MissionActionCell({
           disabled={isPending}
           onClick={handleRunClassification}
         >
-          {isPending ? "Queueing..." : "Run Classification"}
+          {isPending ? "Running..." : "Run Classification"}
         </Button>
       )}
       {actionError && (
         <p className="max-w-[200px] text-right text-xs text-destructive">
-          {actionError}
+          {actionErrorCopy?.detail}
         </p>
       )}
-      {!actionError && mission.last_error_message && (
+      {!actionError && missionErrorCopy && (
         <p className="max-w-[200px] text-right text-xs text-destructive">
-          {mission.last_error_message}
+          {missionErrorCopy.detail}
         </p>
       )}
       {canDelete && (
@@ -343,26 +360,81 @@ export function MissionsTable({
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border bg-card text-card-foreground shadow-sm">
-      <Table>
-        <TableHeader>
-          <TableRow className="border-b bg-muted/50 hover:bg-muted/50">
-            <TableHead className="w-[45%] py-3">Source</TableHead>
-            <TableHead className="py-3">Status</TableHead>
-            <TableHead className="py-3">Created</TableHead>
-            <TableHead className="py-3 text-right">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {missions.map((mission) => (
-            <MissionRow
-              key={mission.id}
-              mission={mission}
-              isAdmin={isAdmin}
-            />
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+    <>
+      <div className="space-y-3 xl:hidden">
+        {missions.map((mission) => (
+          <MissionCard
+            key={mission.id}
+            mission={mission}
+            isAdmin={isAdmin}
+          />
+        ))}
+      </div>
+      <div className="hidden overflow-hidden rounded-lg border bg-card text-card-foreground shadow-sm xl:block">
+        <Table>
+          <TableHeader>
+            <TableRow className="border-b bg-muted/50 hover:bg-muted/50">
+              <TableHead className="w-[45%] py-3">Source</TableHead>
+              <TableHead className="py-3">Status</TableHead>
+              <TableHead className="py-3">Created</TableHead>
+              <TableHead className="py-3 text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {missions.map((mission) => (
+              <MissionRow
+                key={mission.id}
+                mission={mission}
+                isAdmin={isAdmin}
+              />
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </>
+  );
+}
+
+function MissionCard({
+  mission,
+  isAdmin,
+}: {
+  mission: MissionRowType;
+  isAdmin: boolean;
+}) {
+  return (
+    <article className="space-y-4 rounded-lg border bg-card p-3 text-card-foreground shadow-sm">
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <StatusBadge status={mission.status} />
+          <span className="text-xs text-muted-foreground">
+            {getRelativeTime(mission.created_at)}
+          </span>
+        </div>
+        <h3 className="break-words text-sm font-semibold leading-snug text-foreground">
+          {mission.product_intent}
+        </h3>
+        {mission.destination_context && (
+          <p className="text-xs leading-5 text-muted-foreground">
+            {mission.destination_context}
+          </p>
+        )}
+      </div>
+
+      <MissionSourceLinks seedUrl={mission.seed_url} />
+
+      <div className="border-t pt-3">
+        <MissionActionCell mission={mission} canDelete={isAdmin} />
+        {isAdmin && (
+          <Link
+            href={`/missions/${mission.id}`}
+            className="mt-2 inline-flex h-8 items-center gap-1 rounded-md px-2 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            Diagnostics
+            <ExternalLink className="h-3 w-3" />
+          </Link>
+        )}
+      </div>
+    </article>
   );
 }
