@@ -127,11 +127,12 @@ export async function requestPHashComputation(
   fetchImpl: typeof fetch = fetch,
 ): Promise<boolean> {
   const url = getPhashRouteUrl()
-  if (!url) return false
+  const token = process.env.PHASH_WORKER_TOKEN
+  if (!url || !token) return false
   try {
     const response = await fetchImpl(url, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
       body: JSON.stringify({ storagePath, photoHashId }),
     })
     return response.ok

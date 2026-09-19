@@ -12,6 +12,7 @@ vi.mock("next/cache", () => ({
 
 describe("Product Actions - pHash pending + retry", () => {
   const oldAppUrl = process.env.NEXT_PUBLIC_APP_URL;
+const oldPhashToken = process.env.PHASH_WORKER_TOKEN;
   const inserts: unknown[] = [];
 
   const mockSupabase = {
@@ -83,6 +84,8 @@ describe("Product Actions - pHash pending + retry", () => {
     vi.unstubAllGlobals();
     if (oldAppUrl === undefined) delete process.env.NEXT_PUBLIC_APP_URL;
     else process.env.NEXT_PUBLIC_APP_URL = oldAppUrl;
+    if (oldPhashToken === undefined) delete process.env.PHASH_WORKER_TOKEN;
+    else process.env.PHASH_WORKER_TOKEN = oldPhashToken;
   });
 
   it("leaves a pending row when the pHash trigger cannot run", async () => {
@@ -106,6 +109,7 @@ describe("Product Actions - pHash pending + retry", () => {
 
   it("recovers the pending row once the trigger works again", async () => {
     process.env.NEXT_PUBLIC_APP_URL = "https://app.example.com";
+    process.env.PHASH_WORKER_TOKEN = "test-token";
     const fetchMock = vi
       .fn()
       .mockResolvedValue(new Response("{}", { status: 200 }));

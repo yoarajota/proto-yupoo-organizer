@@ -4,7 +4,7 @@ Postgres 17 (`supabase/config.toml`), managed with Supabase migrations in `supab
 
 ## Migrations
 
-- 28 files, `00110101000000_profiles.sql` to `00110101000028_similarity_and_category_strategy.sql`. Name pattern: `00110101` + a 6-digit sequence + `_<slug>.sql`. Supabase orders by the numeric prefix. There is no `...000001` (sequence starts 000, then 002); numbering is otherwise contiguous.
+- 29 files, `00110101000000_profiles.sql` to `00110101000029_mission_queue_send_validation.sql`. Name pattern: `00110101` + a 6-digit sequence + `_<slug>.sql`. Supabase orders by the numeric prefix. There is no `...000001` (sequence starts 000, then 002); numbering is otherwise contiguous.
 - The comment header inside each file uses an older numbering (`-- 001_profiles.sql`, `-- 007_rls_policies.sql` in file 002, `-- 008_...` in files 007 and 010, `-- 018_...` in both 018 and 019). Trust the filename, not the header.
 - Add new migrations with the next number. Apply with `npx supabase@latest db reset` (local). `supabase/config.toml` lists `./seed.sql` as the seed file but `supabase/seed.sql` does not exist in the repo.
 - Extensions created: `vector` (schema `extensions`, 023), `pgmq`, `pg_cron`, `pg_net`, `supabase_vault` (025).
@@ -85,7 +85,7 @@ Everything below `sourcing_missions` cascades on mission delete.
   - `mission_queue_send(queue_name text, message jsonb, sleep_seconds int default 0) -> bigint`: granted to `authenticated`, `service_role`.
   - `mission_queue_read(queue_name text, sleep_seconds int default 30, n int default 5)` -> `msg_id, read_ct, enqueued_at, vt, message`: `service_role` only.
   - `mission_queue_delete(queue_name text, msg_id bigint) -> boolean`: `service_role` only.
-- The wrappers do not validate `queue_name` or the message shape (the 026 comment says "validated RPCs"), so any authenticated user can send to any pgmq queue name through `mission_queue_send`.
+- 029 makes `mission_queue_send` reject any `queue_name` other than `mission_runs` and any message that is not a JSON object with `mission_id` and `stage`. `mission_queue_read` and `mission_queue_delete` are `service_role` only. Any authenticated user can still enqueue a well-formed message for any mission id; ownership of the mission is not checked in the RPC.
 - Consumer: `supabase/functions/mission-queue/index.ts`; flow is in [architecture.md](architecture.md#queue-path).
 
 ## Sourcing pipeline data
@@ -136,6 +136,6 @@ RLS is enabled on every table; each migration enables it and defines policies in
 
 Gaps found while reading the policies (not verified at runtime):
 
-- `photo_hashes` has no UPDATE policy and `similarity_matches` has no INSERT policy for any role except `service_role`, while `/api/phash` updates and inserts through the cookie-bound client. See the auth concern in [architecture.md](architecture.md#image-similarity-phash).
+- `photo_hashes` has no UPDATE policy and `similarity_matches` has no INSERT policy for any role except `service_role`, which is fine because `/api/phash` now writes through the service-role client (see [architecture.md](architecture.md#image-similarity-phash)).
 - 028's `Auth users can read mission-scoped photo_hashes` policy is redundant with 005's read policy (`auth.uid() is not null`).
 - `sourcing_mission_stage_events` cannot be written by the user-session client, which matters for the inline execution path.

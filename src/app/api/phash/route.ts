@@ -1,10 +1,22 @@
 import { NextResponse } from "next/server";
 import phash from "sharp-phash";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getImageBuffer } from "@/lib/supabase/storage";
 import { calculateHammingDistance } from "@/lib/phash-utils";
 
+function isAuthorized(request: Request) {
+  const token = process.env.PHASH_WORKER_TOKEN;
+  const authorization = request.headers.get("authorization");
+
+  if (!token || !authorization) return false;
+  return authorization === `Bearer ${token}`;
+}
+
 export async function POST(request: Request) {
+  if (!isAuthorized(request)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   let failedPhotoHashId: string | undefined;
   try {
     const { storagePath, photoHashId } = await request.json();
@@ -19,13 +31,13 @@ export async function POST(request: Request) {
     failedPhotoHashId = photoHashIdValue;
 
     // 1. Fetch photo from storage
-    const buffer = await getImageBuffer(storagePath);
+    const buffer = await getImageBuffer(createAdminClient(), storagePath);
 
     // 2. Compute pHash
     const computedHash = await phash(buffer);
 
     // 3. Update database
-    const supabase = await createClient();
+    const supabase = createAdminClient();
     const { error: updateError } = await supabase
       .from("photo_hashes")
       .update({ phash: computedHash, phash_status: "hashed" })
@@ -82,7 +94,7 @@ export async function POST(request: Request) {
     console.error("pHash computation pipeline failed:", error.message);
     if (failedPhotoHashId) {
       try {
-        const supabase = await createClient();
+        const supabase = createAdminClient();
         await supabase
           .from("photo_hashes")
           .update({ phash_status: "failed" })

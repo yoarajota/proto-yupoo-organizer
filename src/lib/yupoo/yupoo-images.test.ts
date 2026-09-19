@@ -247,7 +247,9 @@ describe('yupoo hotlink headers + magic-byte guard (live 2026-09-14)', () => {
 describe('retryPendingPhotoHashes', () => {
   it('re-triggers pending rows so a killed trigger recovers', async () => {
     const oldAppUrl = process.env.NEXT_PUBLIC_APP_URL
+    const oldToken = process.env.PHASH_WORKER_TOKEN
     process.env.NEXT_PUBLIC_APP_URL = 'https://app.example.com'
+    process.env.PHASH_WORKER_TOKEN = 'test-token'
     try {
       const pendingRows = [{ id: 'hash-1', storage_path: 'missions/m/1-a.jpg' }]
       const { supabase } = makeSupabase({ pendingRows })
@@ -264,7 +266,10 @@ describe('retryPendingPhotoHashes', () => {
         expect(counts.trigger_failed).toBe(0)
         expect(fetchImpl).toHaveBeenCalledWith(
           'https://app.example.com/api/phash',
-          expect.objectContaining({ method: 'POST' }),
+          expect.objectContaining({
+            method: 'POST',
+            headers: expect.objectContaining({ authorization: 'Bearer test-token' }),
+          }),
         )
       } finally {
         globalThis.fetch = realFetch
@@ -272,6 +277,8 @@ describe('retryPendingPhotoHashes', () => {
     } finally {
       if (oldAppUrl === undefined) delete process.env.NEXT_PUBLIC_APP_URL
       else process.env.NEXT_PUBLIC_APP_URL = oldAppUrl
+      if (oldToken === undefined) delete process.env.PHASH_WORKER_TOKEN
+      else process.env.PHASH_WORKER_TOKEN = oldToken
     }
   })
 })
