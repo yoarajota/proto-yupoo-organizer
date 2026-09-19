@@ -82,7 +82,7 @@ describe("Product Actions - Similarity", () => {
 
       const { data, error } = await dismissSimilarityMatch("match-1");
       expect(error).toBeNull();
-      expect(data.id).toBe("match-1");
+      expect(data?.id).toBe("match-1");
     });
   });
 });

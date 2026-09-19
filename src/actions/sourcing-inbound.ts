@@ -155,8 +155,8 @@ export async function executeInboundOfferParsingDirect(input: ParseInboundOffers
 
   const hasValidQuote = offers.some((offer) => offer.unit_price !== null)
   const missionUpdate = hasValidQuote
-    ? { status: 'offers_normalized', first_valid_quote_at: finishedAt }
-    : { status: 'offers_normalized' }
+    ? { status: 'offers_normalized' as const, first_valid_quote_at: finishedAt }
+    : { status: 'offers_normalized' as const }
 
   const { error: finalMissionError } = await supabase
     .from('sourcing_missions')

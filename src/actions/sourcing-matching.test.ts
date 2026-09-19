@@ -39,7 +39,7 @@ describe('runMissionMatching', () => {
   it('returns unauthorized when no user exists', async () => {
     mockGetUser.mockResolvedValue({ data: { user: null } })
 
-    const result = await runMissionMatching({ mission_id: '550e8400-e29b-41d4-a716-446655440000' })
+    const result = await runMissionMatching({ mission_id: '550e8400-e29b-41d4-a716-446655440000', shortlist_limit: 10 })
 
     expect(result).toEqual({ data: null, error: { message: 'Unauthorized' } })
   })

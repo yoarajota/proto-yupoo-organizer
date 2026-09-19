@@ -5,7 +5,6 @@ export type Json =
   | null
   | { [key: string]: Json | undefined }
   | Json[]
-
 export type Database = {
   graphql_public: {
     Tables: {
@@ -34,152 +33,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      inquiries: {
-        Row: {
-          created_at: string
-          created_by: string
-          id: string
-          notes: string | null
-          price: number | null
-          product_id: string
-          status: Database["public"]["Enums"]["inquiry_status"]
-          supplier_id: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          created_by: string
-          id?: string
-          notes?: string | null
-          price?: number | null
-          product_id: string
-          status?: Database["public"]["Enums"]["inquiry_status"]
-          supplier_id: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          created_by?: string
-          id?: string
-          notes?: string | null
-          price?: number | null
-          product_id?: string
-          status?: Database["public"]["Enums"]["inquiry_status"]
-          supplier_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "inquiries_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "inquiries_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "inquiries_supplier_id_fkey"
-            columns: ["supplier_id"]
-            isOneToOne: false
-            referencedRelation: "suppliers"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      photo_hashes: {
-        Row: {
-          alt_text: string
-          created_at: string
-          created_by: string | null
-          download_status: string
-          id: string
-          mission_id: string | null
-          phash: string | null
-          phash_status: string
-          product_id: string | null
-          storage_path: string
-          updated_at: string
-        }
-        Insert: {
-          alt_text?: string
-          created_at?: string
-          created_by?: string | null
-          download_status?: string
-          id?: string
-          mission_id?: string | null
-          phash?: string | null
-          phash_status?: string
-          product_id?: string | null
-          storage_path: string
-          updated_at?: string
-        }
-        Update: {
-          alt_text?: string
-          created_at?: string
-          created_by?: string | null
-          download_status?: string
-          id?: string
-          mission_id?: string | null
-          phash?: string | null
-          phash_status?: string
-          product_id?: string | null
-          storage_path?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "photo_hashes_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "photo_hashes_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "photo_hashes_mission_id_fkey"
-            columns: ["mission_id"]
-            isOneToOne: false
-            referencedRelation: "sourcing_missions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      brands: {
-        Row: {
-          created_at: string
-          id: string
-          name: string
-          slug: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          name: string
-          slug: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          name?: string
-          slug?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       brand_aliases: {
         Row: {
           alias: string
@@ -212,13 +65,37 @@ export type Database = {
           },
         ]
       }
+      brands: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       catalog_embeddings: {
         Row: {
           brand_alias_id: string | null
           brand_id: string | null
           created_at: string
           embedding: string
-          entity_ref: string
+          entity_ref: string | null
           entity_type: string
           id: string
           product_type_id: string | null
@@ -231,7 +108,7 @@ export type Database = {
           brand_id?: string | null
           created_at?: string
           embedding: string
-          entity_ref?: string
+          entity_ref?: string | null
           entity_type: string
           id?: string
           product_type_id?: string | null
@@ -244,7 +121,7 @@ export type Database = {
           brand_id?: string | null
           created_at?: string
           embedding?: string
-          entity_ref?: string
+          entity_ref?: string | null
           entity_type?: string
           id?: string
           product_type_id?: string | null
@@ -276,78 +153,53 @@ export type Database = {
           },
         ]
       }
-      product_types: {
+      catalogue_summaries: {
         Row: {
+          catalogue_received_at: string | null
+          catalogue_requested_at: string | null
           created_at: string
           id: string
-          name: string
-          slug: string
+          mission_id: string
+          summary_confidence: number
+          summary_text: string
+          supplier_id: string
           updated_at: string
         }
         Insert: {
+          catalogue_received_at?: string | null
+          catalogue_requested_at?: string | null
           created_at?: string
           id?: string
-          name: string
-          slug: string
+          mission_id: string
+          summary_confidence: number
+          summary_text: string
+          supplier_id: string
           updated_at?: string
         }
         Update: {
+          catalogue_received_at?: string | null
+          catalogue_requested_at?: string | null
           created_at?: string
           id?: string
-          name?: string
-          slug?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      products: {
-        Row: {
-          brand_id: string | null
-          created_at: string
-          created_by: string
-          id: string
-          notes: string | null
-          product_type_id: string | null
-          updated_at: string
-        }
-        Insert: {
-          brand_id?: string | null
-          created_at?: string
-          created_by: string
-          id?: string
-          notes?: string | null
-          product_type_id?: string | null
-          updated_at?: string
-        }
-        Update: {
-          brand_id?: string | null
-          created_at?: string
-          created_by?: string
-          id?: string
-          notes?: string | null
-          product_type_id?: string | null
+          mission_id?: string
+          summary_confidence?: number
+          summary_text?: string
+          supplier_id?: string
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "products_brand_id_fkey"
-            columns: ["brand_id"]
+            foreignKeyName: "catalogue_summaries_mission_id_fkey"
+            columns: ["mission_id"]
             isOneToOne: false
-            referencedRelation: "brands"
+            referencedRelation: "sourcing_missions"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "products_created_by_fkey"
-            columns: ["created_by"]
+            foreignKeyName: "catalogue_summaries_supplier_id_fkey"
+            columns: ["supplier_id"]
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "products_product_type_id_fkey"
-            columns: ["product_type_id"]
-            isOneToOne: false
-            referencedRelation: "product_types"
+            referencedRelation: "discovered_suppliers"
             referencedColumns: ["id"]
           },
         ]
@@ -461,6 +313,64 @@ export type Database = {
           },
         ]
       }
+      inquiries: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          notes: string | null
+          price: number | null
+          product_id: string
+          status: Database["public"]["Enums"]["inquiry_status"]
+          supplier_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          notes?: string | null
+          price?: number | null
+          product_id: string
+          status?: Database["public"]["Enums"]["inquiry_status"]
+          supplier_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          notes?: string | null
+          price?: number | null
+          product_id?: string
+          status?: Database["public"]["Enums"]["inquiry_status"]
+          supplier_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inquiries_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inquiries_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inquiries_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mission_category_classifications: {
         Row: {
           canonical_brand: string | null
@@ -563,6 +473,263 @@ export type Database = {
           },
         ]
       }
+      normalized_offers: {
+        Row: {
+          created_at: string
+          currency: string | null
+          extracted_at: string
+          extraction_confidence: number
+          id: string
+          lead_time: string | null
+          mission_id: string
+          moq: number | null
+          supplier_id: string
+          terms_notes: string | null
+          unit_price: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          currency?: string | null
+          extracted_at?: string
+          extraction_confidence: number
+          id?: string
+          lead_time?: string | null
+          mission_id: string
+          moq?: number | null
+          supplier_id: string
+          terms_notes?: string | null
+          unit_price?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          currency?: string | null
+          extracted_at?: string
+          extraction_confidence?: number
+          id?: string
+          lead_time?: string | null
+          mission_id?: string
+          moq?: number | null
+          supplier_id?: string
+          terms_notes?: string | null
+          unit_price?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "normalized_offers_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "sourcing_missions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "normalized_offers_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "discovered_suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      outreach_suggestions: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          channel_hint: string
+          created_at: string
+          exported_at: string | null
+          id: string
+          language: string
+          message_text: string
+          mission_id: string
+          status: Database["public"]["Enums"]["outreach_suggestion_status"]
+          supplier_id: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          channel_hint?: string
+          created_at?: string
+          exported_at?: string | null
+          id?: string
+          language?: string
+          message_text: string
+          mission_id: string
+          status?: Database["public"]["Enums"]["outreach_suggestion_status"]
+          supplier_id: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          channel_hint?: string
+          created_at?: string
+          exported_at?: string | null
+          id?: string
+          language?: string
+          message_text?: string
+          mission_id?: string
+          status?: Database["public"]["Enums"]["outreach_suggestion_status"]
+          supplier_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outreach_suggestions_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "sourcing_missions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outreach_suggestions_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "discovered_suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      photo_hashes: {
+        Row: {
+          alt_text: string
+          created_at: string
+          created_by: string | null
+          download_status: string
+          id: string
+          mission_id: string | null
+          phash: string | null
+          phash_status: string
+          product_id: string | null
+          storage_path: string
+          updated_at: string
+        }
+        Insert: {
+          alt_text?: string
+          created_at?: string
+          created_by?: string | null
+          download_status?: string
+          id?: string
+          mission_id?: string | null
+          phash?: string | null
+          phash_status?: string
+          product_id?: string | null
+          storage_path: string
+          updated_at?: string
+        }
+        Update: {
+          alt_text?: string
+          created_at?: string
+          created_by?: string | null
+          download_status?: string
+          id?: string
+          mission_id?: string | null
+          phash?: string | null
+          phash_status?: string
+          product_id?: string | null
+          storage_path?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "photo_hashes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "photo_hashes_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "sourcing_missions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "photo_hashes_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_types: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      products: {
+        Row: {
+          brand_id: string | null
+          created_at: string
+          created_by: string
+          id: string
+          notes: string | null
+          product_type_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          brand_id?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          notes?: string | null
+          product_type_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          notes?: string | null
+          product_type_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "products_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_product_type_id_fkey"
+            columns: ["product_type_id"]
+            isOneToOne: false
+            referencedRelation: "product_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -632,38 +799,46 @@ export type Database = {
           },
         ]
       }
-      sourcing_mission_stage_metrics: {
+      sources: {
         Row: {
+          brands: string[] | null
           created_at: string
-          duration_ms: number | null
-          finished_at: string | null
+          created_by: string
           id: string
-          mission_id: string
-          stage_name: string
-          started_at: string
+          is_active: boolean
+          notes: string | null
+          platform: Database["public"]["Enums"]["platform_type"]
+          updated_at: string
+          url: string
         }
         Insert: {
+          brands?: string[] | null
           created_at?: string
-          finished_at?: string | null
+          created_by: string
           id?: string
-          mission_id: string
-          stage_name: string
-          started_at: string
+          is_active?: boolean
+          notes?: string | null
+          platform: Database["public"]["Enums"]["platform_type"]
+          updated_at?: string
+          url: string
         }
         Update: {
+          brands?: string[] | null
           created_at?: string
-          finished_at?: string | null
+          created_by?: string
           id?: string
-          mission_id?: string
-          stage_name?: string
-          started_at?: string
+          is_active?: boolean
+          notes?: string | null
+          platform?: Database["public"]["Enums"]["platform_type"]
+          updated_at?: string
+          url?: string
         }
         Relationships: [
           {
-            foreignKeyName: "sourcing_mission_stage_metrics_mission_id_fkey"
-            columns: ["mission_id"]
+            foreignKeyName: "sources_created_by_fkey"
+            columns: ["created_by"]
             isOneToOne: false
-            referencedRelation: "sourcing_missions"
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -769,14 +944,52 @@ export type Database = {
           },
         ]
       }
+      sourcing_mission_stage_metrics: {
+        Row: {
+          created_at: string
+          duration_ms: number | null
+          finished_at: string | null
+          id: string
+          mission_id: string
+          stage_name: string
+          started_at: string
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number | null
+          finished_at?: string | null
+          id?: string
+          mission_id: string
+          stage_name: string
+          started_at: string
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number | null
+          finished_at?: string | null
+          id?: string
+          mission_id?: string
+          stage_name?: string
+          started_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sourcing_mission_stage_metrics_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "sourcing_missions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sourcing_missions: {
         Row: {
+          attempt_count: number
           constraints: Json
           created_at: string
           created_by: string
           current_stage: string | null
           destination_context: string | null
-          attempt_count: number
           failed_at: string | null
           first_suggestion_batch_at: string | null
           first_valid_quote_at: string | null
@@ -793,12 +1006,12 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          attempt_count?: number
           constraints?: Json
           created_at?: string
           created_by: string
           current_stage?: string | null
           destination_context?: string | null
-          attempt_count?: number
           failed_at?: string | null
           first_suggestion_batch_at?: string | null
           first_valid_quote_at?: string | null
@@ -815,12 +1028,12 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          attempt_count?: number
           constraints?: Json
           created_at?: string
           created_by?: string
           current_stage?: string | null
           destination_context?: string | null
-          attempt_count?: number
           failed_at?: string | null
           first_suggestion_batch_at?: string | null
           first_valid_quote_at?: string | null
@@ -836,56 +1049,118 @@ export type Database = {
           status?: Database["public"]["Enums"]["sourcing_mission_status"]
           updated_at?: string
         }
+        Relationships: []
+      }
+      supplier_brands: {
+        Row: {
+          brand_id: string
+          created_at: string
+          supplier_id: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          supplier_id: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          supplier_id?: string
+        }
         Relationships: [
           {
-            foreignKeyName: "sourcing_missions_created_by_fkey"
-            columns: ["created_by"]
+            foreignKeyName: "supplier_brands_brand_id_fkey"
+            columns: ["brand_id"]
             isOneToOne: false
-            referencedRelation: "profiles"
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_brands_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
         ]
       }
-      sources: {
+      supplier_messages: {
         Row: {
-          brands: string[] | null
+          body: string
+          channel: string
           created_at: string
-          created_by: string
+          direction: Database["public"]["Enums"]["supplier_message_direction"]
           id: string
-          is_active: boolean
-          notes: string | null
-          platform: Database["public"]["Enums"]["platform_type"]
-          updated_at: string
-          url: string
+          mission_id: string
+          received_or_sent_at: string
+          supplier_id: string
         }
         Insert: {
-          brands?: string[] | null
+          body: string
+          channel: string
           created_at?: string
-          created_by: string
+          direction: Database["public"]["Enums"]["supplier_message_direction"]
           id?: string
-          is_active?: boolean
-          notes?: string | null
-          platform: Database["public"]["Enums"]["platform_type"]
-          updated_at?: string
-          url: string
+          mission_id: string
+          received_or_sent_at?: string
+          supplier_id: string
         }
         Update: {
-          brands?: string[] | null
+          body?: string
+          channel?: string
           created_at?: string
-          created_by?: string
+          direction?: Database["public"]["Enums"]["supplier_message_direction"]
           id?: string
-          is_active?: boolean
-          notes?: string | null
-          platform?: Database["public"]["Enums"]["platform_type"]
-          updated_at?: string
-          url?: string
+          mission_id?: string
+          received_or_sent_at?: string
+          supplier_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "sources_created_by_fkey"
-            columns: ["created_by"]
+            foreignKeyName: "supplier_messages_mission_id_fkey"
+            columns: ["mission_id"]
             isOneToOne: false
-            referencedRelation: "profiles"
+            referencedRelation: "sourcing_missions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_messages_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "discovered_suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_product_types: {
+        Row: {
+          created_at: string
+          product_type_id: string
+          supplier_id: string
+        }
+        Insert: {
+          created_at?: string
+          product_type_id: string
+          supplier_id: string
+        }
+        Update: {
+          created_at?: string
+          product_type_id?: string
+          supplier_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_product_types_product_type_id_fkey"
+            columns: ["product_type_id"]
+            isOneToOne: false
+            referencedRelation: "product_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_product_types_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
         ]
@@ -943,72 +1218,6 @@ export type Database = {
           },
         ]
       }
-      supplier_brands: {
-        Row: {
-          brand_id: string
-          created_at: string
-          supplier_id: string
-        }
-        Insert: {
-          brand_id: string
-          created_at?: string
-          supplier_id: string
-        }
-        Update: {
-          brand_id?: string
-          created_at?: string
-          supplier_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "supplier_brands_brand_id_fkey"
-            columns: ["brand_id"]
-            isOneToOne: false
-            referencedRelation: "brands"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "supplier_brands_supplier_id_fkey"
-            columns: ["supplier_id"]
-            isOneToOne: false
-            referencedRelation: "suppliers"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      supplier_product_types: {
-        Row: {
-          created_at: string
-          product_type_id: string
-          supplier_id: string
-        }
-        Insert: {
-          created_at?: string
-          product_type_id: string
-          supplier_id: string
-        }
-        Update: {
-          created_at?: string
-          product_type_id?: string
-          supplier_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "supplier_product_types_product_type_id_fkey"
-            columns: ["product_type_id"]
-            isOneToOne: false
-            referencedRelation: "product_types"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "supplier_product_types_supplier_id_fkey"
-            columns: ["supplier_id"]
-            isOneToOne: false
-            referencedRelation: "suppliers"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
     }
     Views: {
       [_ in never]: never
@@ -1031,6 +1240,24 @@ export type Database = {
           source_text: string
         }[]
       }
+      mission_queue_delete: {
+        Args: { msg_id: number; queue_name: string }
+        Returns: boolean
+      }
+      mission_queue_read: {
+        Args: { n?: number; queue_name: string; sleep_seconds?: number }
+        Returns: {
+          enqueued_at: string
+          message: Json
+          msg_id: number
+          read_ct: number
+          vt: string
+        }[]
+      }
+      mission_queue_send: {
+        Args: { message: Json; queue_name: string; sleep_seconds?: number }
+        Returns: number
+      }
     }
     Enums: {
       inquiry_status:
@@ -1039,26 +1266,28 @@ export type Database = {
         | "negotiating"
         | "decided"
         | "ghosted"
+      outreach_suggestion_status: "pending_approval" | "approved" | "exported"
       platform_type: "reddit" | "discord" | "whatsapp" | "other"
       sourcing_mission_status:
         | "created"
-        | "discovery_queued"
         | "scanning"
-        | "classification_queued"
         | "classifying_categories"
-        | "matching_queued"
         | "matching"
         | "suggestions_ready"
-        | "outreach_queued"
         | "awaiting_approval"
         | "approved_for_outreach"
         | "replies_received"
-        | "parse_queued"
         | "offers_normalized"
         | "completed"
         | "blocked_needs_input"
         | "failed_retrying"
         | "failed_terminal"
+        | "discovery_queued"
+        | "classification_queued"
+        | "matching_queued"
+        | "outreach_queued"
+        | "parse_queued"
+      supplier_message_direction: "outbound" | "inbound"
       user_role: "admin" | "member"
     }
     CompositeTypes: {
@@ -1066,21 +1295,18 @@ export type Database = {
     }
   }
 }
-
 type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
-
 type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
-
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1099,16 +1325,15 @@ export type Tables<
       ? R
       : never
     : never
-
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1124,16 +1349,15 @@ export type TablesInsert<
       ? I
       : never
     : never
-
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1149,16 +1373,15 @@ export type TablesUpdate<
       ? U
       : never
     : never
-
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1166,16 +1389,15 @@ export type Enums<
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
     ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
     : never
-
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1183,7 +1405,6 @@ export type CompositeTypes<
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
     ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
-
 export const Constants = {
   graphql_public: {
     Enums: {},
@@ -1197,27 +1418,29 @@ export const Constants = {
         "decided",
         "ghosted",
       ],
+      outreach_suggestion_status: ["pending_approval", "approved", "exported"],
       platform_type: ["reddit", "discord", "whatsapp", "other"],
       sourcing_mission_status: [
         "created",
-        "discovery_queued",
         "scanning",
-        "classification_queued",
         "classifying_categories",
-        "matching_queued",
         "matching",
         "suggestions_ready",
-        "outreach_queued",
         "awaiting_approval",
         "approved_for_outreach",
         "replies_received",
-        "parse_queued",
         "offers_normalized",
         "completed",
         "blocked_needs_input",
         "failed_retrying",
         "failed_terminal",
+        "discovery_queued",
+        "classification_queued",
+        "matching_queued",
+        "outreach_queued",
+        "parse_queued",
       ],
+      supplier_message_direction: ["outbound", "inbound"],
       user_role: ["admin", "member"],
     },
   },

@@ -24,6 +24,7 @@ describe('groupMissionCategoryReviewItems', () => {
             'https://cdn.example.com/1.jpg',
             'https://cdn.example.com/2.jpg',
           ],
+          source_url: null,
         },
       },
       {
@@ -43,6 +44,7 @@ describe('groupMissionCategoryReviewItems', () => {
             'https://cdn.example.com/4.jpg',
             'https://cdn.example.com/5.jpg',
           ],
+          source_url: null,
         },
       },
     ])
