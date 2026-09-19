@@ -28,7 +28,7 @@ Naming quirk: `src/actions/groups.ts` contains `signIn`, `signOut`, `signOutAndR
 
 - `proxy()` builds an `@supabase/ssr` server client from request cookies, calls `auth.getUser()` (not `getSession()`), and redirects to `/login` when there is no user, the path does not start with `/login`, and the request is not a server action (`POST` with `next-action` header).
 - Server actions are therefore not gated by the proxy; each action re-checks the user itself.
-- `config.matcher` excludes anything starting with `api`, `_next/static`, `_next/image`, `favicon.ico` and common image extensions. `src/app/api/*` is never behind the proxy: `/api/mission-worker` is protected by a bearer token, `/api/phash` is protected by the `PHASH_WORKER_TOKEN` bearer token and uses the service-role client.
+- `config.matcher` excludes anything starting with `api`, `_next/static`, `_next/image`, `favicon.ico` and common image extensions. `src/app/api/*` is never behind the proxy: `/api/mission-worker` is protected by a bearer token.
 - `UI_PREVIEW_MODE=1` (`src/lib/preview.ts`) short-circuits the proxy and several pages/layouts to render fixture data without Supabase.
 - Profiles are created lazily: `ensureProfile()` (called from `src/app/(app)/layout.tsx`) inserts a `profiles` row via the admin client; the first profile becomes `admin`, later ones `member`. No DB trigger on `auth.users` exists in the migrations.
 - `scripts/create-admin-user.ts` creates a hard-coded local admin account (`admin@example.com`); local use only.
@@ -47,7 +47,6 @@ Naming quirk: `src/actions/groups.ts` contains `signIn`, `signOut`, `signOutAndR
 | `/products/[id]`, `/suppliers/[id]` | `(app)/...` | Detail pages (`DetailTemplate`). |
 | `/settings` | `(app)/settings/page.tsx` | User list, invite, activate/deactivate (`actions/users.ts`). |
 | `POST /api/mission-worker` | `api/mission-worker/route.ts` | Stage executor; see queue path. |
-| `POST /api/phash` | `api/phash/route.ts` | pHash + similarity; see below. |
 
 `(app)/workspace/data.ts` (`getWorkspaceData`) is the shared loader for all workspace pages. `(app)/layout.tsx` wraps pages in `AppShell` + `TopBar` and calls `ensureProfile()`.
 
@@ -78,7 +77,7 @@ A mission (`sourcing_missions`, created by `createSourcingMission` in `src/actio
 
 Behavior worth knowing:
 
-- Discovery crawls at most `MISSION_DISCOVERY_MAX_REQUESTS` (default and cap 24) pages of the shop (`/categories` first, then album/category links; defaults: depth 2, concurrency 4 via `YUPOO_DISCOVERY_CONCURRENCY` 1-8, 15 s timeout, 2 retries). An `html_snapshot` payload skips the network. It then downloads up to 24 preview images (`photo.yupoo.com` needs a shop Referer and browser UA), stores them in bucket `product-photos` under `missions/<mission_id>/`, inserts `photo_hashes` rows, and asks `/api/phash` to hash them.
+- Discovery crawls at most `MISSION_DISCOVERY_MAX_REQUESTS` (default and cap 24) pages of the shop (`/categories` first, then album/category links; defaults: depth 2, concurrency 4 via `YUPOO_DISCOVERY_CONCURRENCY` 1-8, 15 s timeout, 2 retries). An `html_snapshot` payload skips the network. It then downloads up to 24 preview images (`photo.yupoo.com` needs a shop Referer and browser UA), stores them in bucket `product-photos` under `missions/<mission_id>/`, inserts `photo_hashes` rows, and hashes them with `computePhotoHash`.
 - Classification is rule-first (aliases from `category-config.ts` merged with DB `brands`/`brand_aliases`/`product_types`), then falls back to embedding lookup through the `match_catalog_embeddings` RPC (thresholds 0.70 brand, 0.76 product). Result per category is `auto_accepted` or `needs_review`; `reviewed` is set by manual review. Method is `rules`, `embedding` or `manual`.
 - Matching is a deterministic weighted score (normalized signal overlap 0.4, brand overlap 0.15, raw keyword overlap 0.2, supplier confidence 0.15, freshness 0.1); there is no LLM call anywhere in the pipeline (verified by reading the stage code; no LLM SDK in `package.json`).
 - Category review's alias learning (`brand_aliases` insert in `reviewMissionCategoryClassification`) still sends `created_by`, a column dropped by migration 024, and inserts are admin-only after 024. The insert is best-effort and its error is ignored, so alias learning does not persist (derived from code and migrations; not run).
@@ -125,7 +124,7 @@ Notes on the queue path:
 - The worker runs stages with the service-role client, so RLS does not apply there; inline runs use the user client. `sourcing_mission_stage_events` only allows writes for `service_role` (migration 025), so in inline mode `recordMissionStageEvent` inserts are rejected by RLS and only logged with `console.error` (inferred from policies; not run). Inline runs also create no `sourcing_mission_runs` rows, so the `/missions/[id]` diagnostics page is populated only by queued runs.
 - The edge function reads with `sleep_seconds: 0` (visibility timeout 0). By pgmq semantics a failed message becomes visible again immediately, so it is retried on the next cron tick, and a message still being processed could be read by an overlapping invocation. The function has no maximum-attempt logic and never sets `failed_terminal`. pgmq semantics here are unverified against the installed extension version.
 - `MISSION_WORKER_URL` seen from the Edge Runtime container must reach the Next server (see README, "Local queue testing", for host/WSL addressing). Do not duplicate it here.
-- Env vars are listed in `.env.example` and `supabase/.env.example`. `NEXT_PUBLIC_APP_URL` and `PHASH_WORKER_TOKEN` (both needed for pHash triggers) are in `.env.example`. Read by code but absent from it: `MISSION_RUN_INLINE`, `YUPOO_DISCOVERY_CONCURRENCY`, `UI_PREVIEW_MODE`, `MISSION_WORKER_TIMEOUT_MS` (only in `supabase/.env.example`).
+- Env vars are listed in `.env.example` and `supabase/.env.example`. Read by code but absent from it: `MISSION_RUN_INLINE`, `YUPOO_DISCOVERY_CONCURRENCY`, `UI_PREVIEW_MODE`, `MISSION_WORKER_TIMEOUT_MS` (only in `supabase/.env.example`).
 
 ## Catalog: import and embeddings
 
@@ -139,10 +138,10 @@ Notes on the queue path:
 
 ## Image similarity (pHash)
 
-- Upload flow: `PhotoUploadZone` uploads from the browser client to bucket `product-photos` (`products/<id>-<name>`), then `createProduct` / `addProductPhoto` (`src/actions/products.ts`) insert a `photo_hashes` row with `phash_status = 'pending'` and fire `requestPHashComputation` (`src/lib/yupoo/yupoo-images.ts`), a `fetch` to `${NEXT_PUBLIC_APP_URL}/api/phash`. If `NEXT_PUBLIC_APP_URL` is unset the trigger is skipped and the row stays pending (it is not in `.env.example`). `retryPendingPhotoHashes` (action + lib) re-triggers pending rows; discovery also calls it for the mission.
-- `POST /api/phash` (`storagePath`, `photoHashId`): downloads the image, computes a 64-bit hash with `sharp-phash`, updates `photo_hashes` (`phash`, `phash_status = 'hashed'`; `failed` on error), then compares against every other non-null hash using Hamming distance (`src/lib/phash-utils.ts`) and inserts `similarity_matches` for distance <= 10. The comparison is a full scan in the request, not an index lookup.
+- Upload flow: `PhotoUploadZone` uploads from the browser client to bucket `product-photos` (`products/<id>-<name>`), then `createProduct` / `addProductPhoto` (`src/actions/products.ts`) insert a `photo_hashes` row with `phash_status = 'pending'` and fire `computePhotoHash` (`src/lib/phash-utils.ts`) without awaiting it, in the same server process. If it fails the row is marked `failed`. `retryPendingPhotoHashes` (action + lib) re-triggers pending rows; discovery also calls it for the mission.
+- `computePhotoHash(storagePath, photoHashId)`: downloads the image from storage, computes a 64-bit hash with `sharp-phash`, updates `photo_hashes` (`phash`, `phash_status = 'hashed'`; `failed` on error), then compares against every other non-null hash using Hamming distance (`src/lib/phash-utils.ts`) and inserts `similarity_matches` for distance <= 10. The comparison is a full table scan run inside the calling server process, not an index lookup, so it will not scale to a large `photo_hashes` table or to hosting with short request time limits.
 - UI reads: `getPhotoHashStatus`, `getSimilarityMatches`, `dismissSimilarityMatch` (`products.ts`); banner in `SimilarityAdvisoryBanner`.
-- Auth: the route requires `Authorization: Bearer $PHASH_WORKER_TOKEN` and reads storage and writes `photo_hashes` / `similarity_matches` with the service-role client, so the missing UPDATE and INSERT RLS policies for authenticated users no longer matter. `requestPHashComputation` (`src/lib/yupoo/yupoo-images.ts`) sends the token and returns `false` without `NEXT_PUBLIC_APP_URL` and `PHASH_WORKER_TOKEN`. Unit tests cover the 401 paths; the full trigger path has not been run end to end.
+- Auth: `computePhotoHash` reads storage and writes `photo_hashes` / `similarity_matches` with the service-role client (`src/lib/supabase/admin.ts`), so the missing UPDATE and INSERT RLS policies for authenticated users do not matter. There is no HTTP endpoint for it. Unit tests cover the hash, match and failure paths with mocked clients; it has not been run end to end against real storage.
 
 ## Scrape evaluation scripts (`scripts/`)
 

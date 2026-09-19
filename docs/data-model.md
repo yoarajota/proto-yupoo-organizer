@@ -103,7 +103,7 @@ Everything below `sourcing_missions` cascades on mission delete.
 
 `discovered_suppliers` are mission-scoped records, distinct from the CRM `suppliers` table; nothing in the migrations links the two.
 
-Mission-scoped image similarity (028): `photo_hashes` rows with `mission_id` set, hashed by `/api/phash` into `similarity_matches`. A partial index `photo_hashes_phash_status_idx` covers `phash_status = 'pending'` rows for retries. The 028 file name mentions "category strategy", but the file contains only the similarity changes; the category-strategy roll-up is computed in code (`rollupCategoryStrategy`) and stored only as a stage event (`worker_classification_strategy_rolled_up`).
+Mission-scoped image similarity (028): `photo_hashes` rows with `mission_id` set, hashed by `computePhotoHash` into `similarity_matches`. A partial index `photo_hashes_phash_status_idx` covers `phash_status = 'pending'` rows for retries. The 028 file name mentions "category strategy", but the file contains only the similarity changes; the category-strategy roll-up is computed in code (`rollupCategoryStrategy`) and stored only as a stage event (`worker_classification_strategy_rolled_up`).
 
 ## Key relationships
 
@@ -136,6 +136,6 @@ RLS is enabled on every table; each migration enables it and defines policies in
 
 Gaps found while reading the policies (not verified at runtime):
 
-- `photo_hashes` has no UPDATE policy and `similarity_matches` has no INSERT policy for any role except `service_role`, which is fine because `/api/phash` now writes through the service-role client (see [architecture.md](architecture.md#image-similarity-phash)).
+- `photo_hashes` has no UPDATE policy and `similarity_matches` has no INSERT policy for any role except `service_role`, which is fine because `computePhotoHash` writes through the service-role client (see [architecture.md](architecture.md#image-similarity-phash)).
 - 028's `Auth users can read mission-scoped photo_hashes` policy is redundant with 005's read policy (`auth.uid() is not null`).
 - `sourcing_mission_stage_events` cannot be written by the user-session client, which matters for the inline execution path.

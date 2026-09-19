@@ -2,10 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import {
-  requestPHashComputation,
-  retryPendingPhotoHashes as retryPendingPhotoHashesWithClient,
-} from "@/lib/yupoo/yupoo-images";
+import { computePhotoHash } from "@/lib/phash-utils";
+import { retryPendingPhotoHashes as retryPendingPhotoHashesWithClient } from "@/lib/yupoo/yupoo-images";
 import type { ProductUpdateValues } from "@/lib/schemas/product";
 
 export async function createProduct(storagePath: string, altText: string) {
@@ -48,7 +46,7 @@ export async function createProduct(storagePath: string, altText: string) {
 
   // Best-effort pHash trigger: the row stays pending and is recovered by
   // retryPendingPhotoHashes when the trigger cannot run.
-  void requestPHashComputation(hash.storage_path, hash.id);
+  void computePhotoHash(hash.storage_path, hash.id);
 
   revalidatePath("/workspace");
   return { data: { product, hash }, error: null };
@@ -85,7 +83,7 @@ export async function addProductPhoto(
 
   // Best-effort pHash trigger: the row stays pending and is recovered by
   // retryPendingPhotoHashes when the trigger cannot run.
-  void requestPHashComputation(hash.storage_path, hash.id);
+  void computePhotoHash(hash.storage_path, hash.id);
 
   revalidatePath("/workspace");
   revalidatePath(`/products/${productId}`);

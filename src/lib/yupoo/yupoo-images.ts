@@ -5,10 +5,12 @@
 // images lives here so scout.ts stays a pure HTML->records parser. Flow per
 // image: download photo.yupoo.com bytes -> product-photos bucket ->
 // photo_hashes row (product_id NULL, mission_id set, created_by NULL,
-// download_status downloaded, phash_status pending) -> best-effort trigger of
-// the existing /api/phash route, which persists the pHash and
-// similarity_matches. Rows left pending are recovered by
-// retryPendingPhotoHashes through the existing queue-worker path (T012).
+// download_status downloaded, phash_status pending) -> best-effort
+// computePhotoHash, which persists the pHash and similarity_matches. Rows left
+// pending are recovered by retryPendingPhotoHashes through the existing
+// queue-worker path (T012).
+import { computePhotoHash } from '@/lib/phash-utils'
+
 type YupooImagesClient = {
   from: (table: string) => any
   storage?: {
@@ -115,32 +117,6 @@ export function storagePathForMissionImage(
   return `missions/${missionId}/${index}-${safe || 'image.jpg'}`
 }
 
-function getPhashRouteUrl() {
-  const base = process.env.NEXT_PUBLIC_APP_URL || ''
-  if (!base) return null
-  return `${base.replace(/\/$/, '')}/api/phash`
-}
-
-export async function requestPHashComputation(
-  storagePath: string,
-  photoHashId: string,
-  fetchImpl: typeof fetch = fetch,
-): Promise<boolean> {
-  const url = getPhashRouteUrl()
-  const token = process.env.PHASH_WORKER_TOKEN
-  if (!url || !token) return false
-  try {
-    const response = await fetchImpl(url, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
-      body: JSON.stringify({ storagePath, photoHashId }),
-    })
-    return response.ok
-  } catch {
-    return false
-  }
-}
-
 export async function ingestMissionYupooImages(
   supabase: YupooImagesClient,
   missionId: string,
@@ -169,7 +145,7 @@ export async function ingestMissionYupooImages(
       }
       return { bytes, contentType }
     })
-  const triggerPHash = deps.triggerPHash ?? requestPHashComputation
+  const triggerPHash = deps.triggerPHash ?? computePhotoHash
 
   if (!supabase.storage) return { ...counts, download_failed: limited.length }
 
@@ -244,7 +220,7 @@ export async function retryPendingPhotoHashes(
     trigger_failed: 0,
   }
   for (const row of rows) {
-    const ok = await requestPHashComputation(row.storage_path, row.id)
+    const ok = await computePhotoHash(row.storage_path, row.id)
     if (ok) counts.trigger_requested += 1
     else counts.trigger_failed += 1
   }

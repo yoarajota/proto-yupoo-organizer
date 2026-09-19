@@ -1,3 +1,9 @@
+import phash from "sharp-phash";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getImageBuffer } from "@/lib/supabase/storage";
+
+const SIMILARITY_MAX_DISTANCE = 10;
+
 /**
  * Calculates the Hamming distance between two hex strings representing perceptual hashes.
  * Assumes strings are of equal length (e.g., 16 characters for a 64-bit hash).
@@ -23,4 +29,64 @@ export function calculateHammingDistance(hash1: string, hash2: string): number {
   }
 
   return distance;
+}
+
+export async function computePhotoHash(
+  storagePath: string,
+  photoHashId: string,
+): Promise<boolean> {
+  const supabase = createAdminClient();
+  try {
+    const buffer = await getImageBuffer(supabase, storagePath);
+    const computedHash = await phash(buffer);
+
+    const { error: updateError } = await supabase
+      .from("photo_hashes")
+      .update({ phash: computedHash, phash_status: "hashed" })
+      .eq("id", photoHashId);
+    if (updateError) throw new Error(updateError.message);
+
+    const { data: existingHashes, error: fetchError } = await supabase
+      .from("photo_hashes")
+      .select("id, phash")
+      .not("id", "eq", photoHashId)
+      .not("phash", "is", null);
+    if (fetchError) {
+      console.error("pHash comparison fetch failed:", fetchError.message);
+      return true;
+    }
+
+    const matches = (existingHashes ?? [])
+      .map((h) => ({
+        matched_photo_hash_id: h.id,
+        distance: calculateHammingDistance(computedHash, h.phash!),
+      }))
+      .filter((m) => m.distance <= SIMILARITY_MAX_DISTANCE);
+
+    if (matches.length > 0) {
+      const { error: insertError } = await supabase
+        .from("similarity_matches")
+        .insert(
+          matches.map((m) => ({
+            source_photo_hash_id: photoHashId,
+            matched_photo_hash_id: m.matched_photo_hash_id,
+            distance: m.distance,
+          })),
+        );
+      if (insertError) {
+        console.error("Failed to insert similarity matches:", insertError.message);
+      }
+    }
+    return true;
+  } catch (error) {
+    console.error(
+      "pHash computation failed:",
+      error instanceof Error ? error.message : error,
+    );
+    await supabase
+      .from("photo_hashes")
+      .update({ phash_status: "failed" })
+      .eq("id", photoHashId);
+    return false;
+  }
 }

@@ -1,5 +1,14 @@
-import { describe, it, expect } from "vitest";
-import { calculateHammingDistance } from "./phash-utils";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { calculateHammingDistance, computePhotoHash } from "./phash-utils";
+
+const mocks = vi.hoisted(() => ({
+  phash: vi.fn(),
+  getImageBuffer: vi.fn(),
+  createAdminClient: vi.fn(),
+}));
+vi.mock("sharp-phash", () => ({ default: mocks.phash }));
+vi.mock("@/lib/supabase/storage", () => ({ getImageBuffer: mocks.getImageBuffer }));
+vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: mocks.createAdminClient }));
 
 describe("phash-utils", () => {
   describe("calculateHammingDistance", () => {
@@ -32,5 +41,68 @@ describe("phash-utils", () => {
         "Hashes must have the same length",
       );
     });
+  });
+});
+
+describe("computePhotoHash", () => {
+  const updates: unknown[] = [];
+  const inserts: unknown[] = [];
+
+  function makeClient(existing: Array<{ id: string; phash: string }>) {
+    return {
+      from: (table: string) => {
+        if (table === "similarity_matches") {
+          return {
+            insert: (rows: unknown) => {
+              inserts.push(rows);
+              return Promise.resolve({ error: null });
+            },
+          };
+        }
+        return {
+          update: (row: unknown) => {
+            updates.push(row);
+            return { eq: () => Promise.resolve({ error: null }) };
+          },
+          select: () => ({
+            not: () => ({
+              not: () => Promise.resolve({ data: existing, error: null }),
+            }),
+          }),
+        };
+      },
+    };
+  }
+
+  beforeEach(() => {
+    updates.length = 0;
+    inserts.length = 0;
+    mocks.phash.mockReset();
+    mocks.getImageBuffer.mockReset();
+    mocks.getImageBuffer.mockResolvedValue(Buffer.from("img"));
+  });
+
+  it("stores the hash and records matches within distance 10", async () => {
+    mocks.phash.mockResolvedValue("0000000000000000");
+    mocks.createAdminClient.mockReturnValue(
+      makeClient([
+        { id: "near", phash: "0000000000000001" },
+        { id: "far", phash: "ffffffffffffffff" },
+      ]),
+    );
+
+    expect(await computePhotoHash("p.jpg", "h1")).toBe(true);
+    expect(updates).toEqual([{ phash: "0000000000000000", phash_status: "hashed" }]);
+    expect(inserts).toEqual([
+      [{ source_photo_hash_id: "h1", matched_photo_hash_id: "near", distance: 1 }],
+    ]);
+  });
+
+  it("marks the row failed and returns false when hashing throws", async () => {
+    mocks.phash.mockRejectedValue(new Error("bad image"));
+    mocks.createAdminClient.mockReturnValue(makeClient([]));
+
+    expect(await computePhotoHash("p.jpg", "h1")).toBe(false);
+    expect(updates).toEqual([{ phash_status: "failed" }]);
   });
 });

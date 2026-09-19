@@ -6,13 +6,14 @@ vi.mock("@/lib/supabase/server", () => ({
   createClient: vi.fn(),
 }));
 
+const computePhotoHash = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/phash-utils", () => ({ computePhotoHash }));
+
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
 }));
 
 describe("Product Actions - pHash pending + retry", () => {
-  const oldAppUrl = process.env.NEXT_PUBLIC_APP_URL;
-const oldPhashToken = process.env.PHASH_WORKER_TOKEN;
   const inserts: unknown[] = [];
 
   const mockSupabase = {
@@ -81,16 +82,11 @@ const oldPhashToken = process.env.PHASH_WORKER_TOKEN;
   });
 
   afterEach(() => {
-    vi.unstubAllGlobals();
-    if (oldAppUrl === undefined) delete process.env.NEXT_PUBLIC_APP_URL;
-    else process.env.NEXT_PUBLIC_APP_URL = oldAppUrl;
-    if (oldPhashToken === undefined) delete process.env.PHASH_WORKER_TOKEN;
-    else process.env.PHASH_WORKER_TOKEN = oldPhashToken;
+    computePhotoHash.mockReset();
   });
 
   it("leaves a pending row when the pHash trigger cannot run", async () => {
-    delete process.env.NEXT_PUBLIC_APP_URL;
-    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+    computePhotoHash.mockResolvedValue(false);
 
     const { data, error } = await createProduct(
       "products/x-photo.jpg",
@@ -104,16 +100,11 @@ const oldPhashToken = process.env.PHASH_WORKER_TOKEN;
       download_status: "downloaded",
       phash_status: "pending",
     });
-    expect(globalThis.fetch).not.toHaveBeenCalled();
+    expect(computePhotoHash).toHaveBeenCalledWith("products/x-photo.jpg", "hash-1");
   });
 
   it("recovers the pending row once the trigger works again", async () => {
-    process.env.NEXT_PUBLIC_APP_URL = "https://app.example.com";
-    process.env.PHASH_WORKER_TOKEN = "test-token";
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(new Response("{}", { status: 200 }));
-    vi.stubGlobal("fetch", fetchMock);
+    computePhotoHash.mockResolvedValue(true);
 
     const { data, error } = await retryPendingPhotoHashes();
 
@@ -123,9 +114,6 @@ const oldPhashToken = process.env.PHASH_WORKER_TOKEN;
       trigger_requested: 1,
       trigger_failed: 0,
     });
-    expect(fetchMock).toHaveBeenCalledWith(
-      "https://app.example.com/api/phash",
-      expect.objectContaining({ method: "POST" }),
-    );
+    expect(computePhotoHash).toHaveBeenCalledWith("products/x-photo.jpg", "hash-1");
   });
 });

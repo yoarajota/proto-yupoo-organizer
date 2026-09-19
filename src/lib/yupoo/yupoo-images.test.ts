@@ -11,6 +11,9 @@ import {
   yupooImageRequestHeaders,
 } from './yupoo-images'
 
+const computePhotoHash = vi.hoisted(() => vi.fn())
+vi.mock('@/lib/phash-utils', () => ({ computePhotoHash }))
+
 const MISSION_ID = '550e8400-e29b-41d4-a716-446655440000'
 
 function makeSupabase(input: {
@@ -246,40 +249,31 @@ describe('yupoo hotlink headers + magic-byte guard (live 2026-09-14)', () => {
 
 describe('retryPendingPhotoHashes', () => {
   it('re-triggers pending rows so a killed trigger recovers', async () => {
-    const oldAppUrl = process.env.NEXT_PUBLIC_APP_URL
-    const oldToken = process.env.PHASH_WORKER_TOKEN
-    process.env.NEXT_PUBLIC_APP_URL = 'https://app.example.com'
-    process.env.PHASH_WORKER_TOKEN = 'test-token'
-    try {
-      const pendingRows = [{ id: 'hash-1', storage_path: 'missions/m/1-a.jpg' }]
-      const { supabase } = makeSupabase({ pendingRows })
-      const fetchImpl = vi.fn(async () => new Response('{}', { status: 200 }))
+    computePhotoHash.mockResolvedValue(true)
+    const pendingRows = [{ id: 'hash-1', storage_path: 'missions/m/1-a.jpg' }]
+    const { supabase } = makeSupabase({ pendingRows })
 
-      const realFetch = globalThis.fetch
-      globalThis.fetch = fetchImpl as never
-      try {
-        const counts = await retryPendingPhotoHashes(supabase as never, {
-          missionId: MISSION_ID,
-        })
-        expect(counts.pending_found).toBe(1)
-        expect(counts.trigger_requested).toBe(1)
-        expect(counts.trigger_failed).toBe(0)
-        expect(fetchImpl).toHaveBeenCalledWith(
-          'https://app.example.com/api/phash',
-          expect.objectContaining({
-            method: 'POST',
-            headers: expect.objectContaining({ authorization: 'Bearer test-token' }),
-          }),
-        )
-      } finally {
-        globalThis.fetch = realFetch
-      }
-    } finally {
-      if (oldAppUrl === undefined) delete process.env.NEXT_PUBLIC_APP_URL
-      else process.env.NEXT_PUBLIC_APP_URL = oldAppUrl
-      if (oldToken === undefined) delete process.env.PHASH_WORKER_TOKEN
-      else process.env.PHASH_WORKER_TOKEN = oldToken
-    }
+    const counts = await retryPendingPhotoHashes(supabase as never, {
+      missionId: MISSION_ID,
+    })
+
+    expect(counts.pending_found).toBe(1)
+    expect(counts.trigger_requested).toBe(1)
+    expect(counts.trigger_failed).toBe(0)
+    expect(computePhotoHash).toHaveBeenCalledWith('missions/m/1-a.jpg', 'hash-1')
+  })
+
+  it('counts a failed computation as trigger_failed', async () => {
+    computePhotoHash.mockResolvedValue(false)
+    const { supabase } = makeSupabase({
+      pendingRows: [{ id: 'hash-1', storage_path: 'missions/m/1-a.jpg' }],
+    })
+
+    const counts = await retryPendingPhotoHashes(supabase as never, {
+      missionId: MISSION_ID,
+    })
+
+    expect(counts.trigger_failed).toBe(1)
   })
 })
 
