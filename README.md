@@ -1,45 +1,65 @@
 # Proto Yupoo Organizer
 
-Inventory and supplier management tool for product sourcing workflows.
+Sourcing and supplier-management tool for importers working with Yupoo shops: discover shops, classify their catalogs by brand and product type, match products across shops, run supplier outreach, and track inquiries and offers.
 
 ## Features
 
 - Product catalog with image similarity detection (pHash matching)
-- Supplier management with inquiry history
-- Active inquiries tracking with product photos
-- Source library with filtering
-- Group-based organization
-- Supabase authentication and real-time data
+- Supplier management with inquiry history and active-inquiry tracking
+- Source library with filtering, and group-based organization
+- Sourcing missions: Yupoo discovery and category classification are wired to the UI. Category review, supplier matching, outreach suggestions and inbound offer parsing exist as server actions and tests but have no UI callers yet (see [Architecture](docs/architecture.md))
+- Global brand / product-type catalog with embeddings
+- Supabase authentication and data
 
 ## Tech Stack
 
-- **Framework:** Next.js 15 (App Router)
+- **Framework:** Next.js 16 (App Router) with React 19 and the React Compiler
 - **Language:** TypeScript (strict)
-- **Database:** Supabase (PostgreSQL + Auth)
+- **Database:** Supabase (PostgreSQL, Auth, Queues/pgmq, Edge Functions)
 - **Validation:** Zod schemas
 - **Testing:** Vitest (unit) + Playwright (e2e)
-- **UI:** shadcn/ui + TailwindCSS
+- **UI:** shadcn/ui + Tailwind CSS 4, organized with Atomic Design
+
+## Documentation
+
+- [Architecture](docs/architecture.md)
+- [Data model](docs/data-model.md)
+- [Contributor and agent conventions](AGENTS.md)
 
 ## Getting Started
 
+pnpm is the package manager (`pnpm-lock.yaml`; the Docker image installs with `--frozen-lockfile`).
+
 ```bash
+pnpm install
 cp .env.example .env.local
-npm install
-npm run dev
+npx supabase@latest start        # local Postgres/Auth/Storage; prints the API URL and keys
+# put the printed URL, anon key and service role key into .env.local
+pnpm dev                          # http://localhost:3090
 ```
 
-## Testing
+Use `npx supabase@latest ...` for Supabase CLI commands; no global install is assumed. The `supabase:*` and `db:types` scripts call a bare `supabase` binary, so run them through `pnpm exec` or use the `npx` form directly.
+
+After adding or changing a migration in `supabase/migrations/`, apply it and regenerate the types. `src/types/database.ts` is generated, and a stale copy breaks `pnpm build`:
 
 ```bash
-npm test          # unit tests
-npx playwright test  # e2e tests
+npx supabase@latest db reset
+npx supabase@latest gen types typescript --local > src/types/database.ts
 ```
 
-Open [http://localhost:3090](http://localhost:3090) with your browser to see the result.
+Redirect stdout only; progress text from Docker on stderr must not end up in the file.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Command | Purpose |
+| --- | --- |
+| `pnpm dev` | Next dev server on `0.0.0.0:3090` |
+| `pnpm build` / `pnpm start` | Production build / server |
+| `pnpm test:run` | Unit tests once (`pnpm test` watches) |
+| `pnpm e2e` | Playwright tests |
+| `pnpm lint` | ESLint |
+| `pnpm catalog:import`, `pnpm catalog:embeddings:seed` | Seed the global catalog (see below) |
+| `pnpm scrape:eval*` | Yupoo scraping evaluation scripts in `scripts/` |
 
 ## Catalog Import
 
